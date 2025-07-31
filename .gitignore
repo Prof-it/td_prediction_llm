@@ -1,0 +1,4 @@
+.DS_Store
+/repos
+/.ipynb_checkpoints
+/venv*
