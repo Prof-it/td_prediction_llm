@@ -1,0 +1,107 @@
+{
+  "fastapi_part1_diff_removed.jsonl": {
+    "status": "completed",
+    "input_file_id": "file-MhEd7xqb8tZSpz9u9nqeyx",
+    "output_file_id": "file-PDFuhKtrxD2eTVrSD3tEvL",
+    "error_file_id": null,
+    "request_counts": "BatchRequestCounts(completed=934, failed=0, total=934)"
+  },
+  "fastapi_part1_original_prompt.jsonl": {
+    "status": "completed",
+    "input_file_id": "file-T25qkayUyKctTa9FBZBnuW",
+    "output_file_id": "file-4FXokYvDZ88qvztJWiia1t",
+    "error_file_id": null,
+    "request_counts": "BatchRequestCounts(completed=934, failed=0, total=934)"
+  },
+  "fastapi_part1_satd_filtered.jsonl": {
+    "status": "completed",
+    "input_file_id": "file-XPLtUsKNGwCMEYzZJXU1cF",
+    "output_file_id": "file-FZPwSSG3GgebrG8dm8GSmq",
+    "error_file_id": null,
+    "request_counts": "BatchRequestCounts(completed=934, failed=0, total=934)"
+  },
+  "flask_part1_diff_removed.jsonl": {
+    "status": "completed",
+    "input_file_id": "file-2U7PKLBxr225LmJEmwGiUN",
+    "output_file_id": "file-3T7Dvf6jtPQDZF82TvnHBz",
+    "error_file_id": null,
+    "request_counts": "BatchRequestCounts(completed=1967, failed=0, total=1967)"
+  },
+  "flask_part1_original_prompt.jsonl": {
+    "status": "completed",
+    "input_file_id": "file-Dg6EqaqzGBwiGgpsNt27UQ",
+    "output_file_id": "file-UFPjxfKbaLDd2btiK4nuSD",
+    "error_file_id": null,
+    "request_counts": "BatchRequestCounts(completed=1967, failed=0, total=1967)"
+  },
+  "flask_part1_satd_filtered.jsonl": {
+    "status": "completed",
+    "input_file_id": "file-LJtyYFTrpY6zYcvokhHQvu",
+    "output_file_id": "file-6tqWaktoJdokBiXxr95Z1i",
+    "error_file_id": null,
+    "request_counts": "BatchRequestCounts(completed=1967, failed=0, total=1967)"
+  },
+  "keras_part1_diff_removed.jsonl": {
+    "status": "completed",
+    "input_file_id": "file-86T4JZsPHXMZGM64XrV2wp",
+    "output_file_id": "file-9RLmmNgygQiTQz4s3iCbdc",
+    "error_file_id": null,
+    "request_counts": "BatchRequestCounts(completed=9267, failed=0, total=9267)"
+  },
+  "keras_part1_original_prompt.jsonl": {
+    "status": "completed",
+    "input_file_id": "file-11sBRdWDe7sdweeeoHBT9G",
+    "output_file_id": "file-358W1svpXCbkz4vVRov9gn",
+    "error_file_id": null,
+    "request_counts": "BatchRequestCounts(completed=9267, failed=0, total=9267)"
+  },
+  "keras_part1_satd_filtered.jsonl": {
+    "status": "completed",
+    "input_file_id": "file-XTu9kDfQz7g27cUcG1b4sd",
+    "output_file_id": "file-Q3nC7fWm4q6PE9ASUthnY7",
+    "error_file_id": null,
+    "request_counts": "BatchRequestCounts(completed=9267, failed=0, total=9267)"
+  },
+  "requests_part1_diff_removed.jsonl": {
+    "status": "completed",
+    "input_file_id": "file-BFRZ1PTomiabuLwEc45quF",
+    "output_file_id": "file-8fmrr3ypwhRoruc7NbtwcM",
+    "error_file_id": null,
+    "request_counts": "BatchRequestCounts(completed=2749, failed=0, total=2749)"
+  },
+  "requests_part1_original_prompt.jsonl": {
+    "status": "completed",
+    "input_file_id": "file-5rTyobbgQ5D3w85FQxS1NM",
+    "output_file_id": "file-5dB63wpE1FU7AHrikkdWpx",
+    "error_file_id": null,
+    "request_counts": "BatchRequestCounts(completed=2749, failed=0, total=2749)"
+  },
+  "requests_part1_satd_filtered.jsonl": {
+    "status": "completed",
+    "input_file_id": "file-BrHRYxL6sSCN9Jb3JmS2ZA",
+    "output_file_id": "file-Lpi5e2vDfhniUxvBDcT1iz",
+    "error_file_id": null,
+    "request_counts": "BatchRequestCounts(completed=2749, failed=0, total=2749)"
+  },
+  "scrapy_part1_diff_removed.jsonl": {
+    "status": "completed",
+    "input_file_id": "file-RU22mr6E3Jtp7fJE24khXS",
+    "output_file_id": "file-VBGb9Fwe13u5XMdM4ZvECb",
+    "error_file_id": null,
+    "request_counts": "BatchRequestCounts(completed=6132, failed=0, total=6132)"
+  },
+  "scrapy_part1_original_prompt.jsonl": {
+    "status": "completed",
+    "input_file_id": "file-5tthWJuftc3XxEeYpYbGVj",
+    "output_file_id": "file-2zMB6KDwJKDkHemHyXYLQj",
+    "error_file_id": null,
+    "request_counts": "BatchRequestCounts(completed=6132, failed=0, total=6132)"
+  },
+  "scrapy_part1_satd_filtered.jsonl": {
+    "status": "completed",
+    "input_file_id": "file-SG1yhcJLHxsZvr4RN3HXNr",
+    "output_file_id": "file-1QFRGM8b5MdZ6dS9Z3SCeq",
+    "error_file_id": null,
+    "request_counts": "BatchRequestCounts(completed=6132, failed=0, total=6132)"
+  }
+}

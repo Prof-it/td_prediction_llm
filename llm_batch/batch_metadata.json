@@ -1,0 +1,77 @@
+{
+  "fastapi_part1_diff_removed.jsonl": {
+    "file_id": "file-MhEd7xqb8tZSpz9u9nqeyx",
+    "batch_id": "batch_688bcf73ca588190a8c47134ed33d491",
+    "status": "submitted"
+  },
+  "fastapi_part1_original_prompt.jsonl": {
+    "file_id": "file-T25qkayUyKctTa9FBZBnuW",
+    "batch_id": "batch_688bcf7bfde08190ad9b7502a9a73868",
+    "status": "submitted"
+  },
+  "fastapi_part1_satd_filtered.jsonl": {
+    "file_id": "file-XPLtUsKNGwCMEYzZJXU1cF",
+    "batch_id": "batch_688bcf82ae68819099654271380cefe1",
+    "status": "submitted"
+  },
+  "flask_part1_diff_removed.jsonl": {
+    "file_id": "file-2U7PKLBxr225LmJEmwGiUN",
+    "batch_id": "batch_688bcf84325081908c9e4a7026887a59",
+    "status": "submitted"
+  },
+  "flask_part1_original_prompt.jsonl": {
+    "file_id": "file-Dg6EqaqzGBwiGgpsNt27UQ",
+    "batch_id": "batch_688bcf8a312081909ebc36d02e3551de",
+    "status": "submitted"
+  },
+  "flask_part1_satd_filtered.jsonl": {
+    "file_id": "file-LJtyYFTrpY6zYcvokhHQvu",
+    "batch_id": "batch_688bcf8f30888190b50f5a574639ef43",
+    "status": "submitted"
+  },
+  "keras_part1_diff_removed.jsonl": {
+    "file_id": "file-86T4JZsPHXMZGM64XrV2wp",
+    "batch_id": "batch_688bcf947a1481909a458cdea0dc2601",
+    "status": "submitted"
+  },
+  "keras_part1_original_prompt.jsonl": {
+    "file_id": "file-11sBRdWDe7sdweeeoHBT9G",
+    "batch_id": "batch_688def93e46081908bdd308fa920e4c5",
+    "status": "submitted"
+  },
+  "keras_part1_satd_filtered.jsonl": {
+    "file_id": "file-XTu9kDfQz7g27cUcG1b4sd",
+    "batch_id": "batch_688d573df5388190895f4f7c3122bcf5",
+    "status": "submitted"
+  },
+  "requests_part1_diff_removed.jsonl": {
+    "file_id": "file-BFRZ1PTomiabuLwEc45quF",
+    "batch_id": "batch_688bd02eec70819099adf1db1d546dff",
+    "status": "submitted"
+  },
+  "requests_part1_original_prompt.jsonl": {
+    "file_id": "file-5rTyobbgQ5D3w85FQxS1NM",
+    "batch_id": "batch_688bd03ac4048190a63bbbcf538828ea",
+    "status": "submitted"
+  },
+  "requests_part1_satd_filtered.jsonl": {
+    "file_id": "file-BrHRYxL6sSCN9Jb3JmS2ZA",
+    "batch_id": "batch_688bd0440f548190a04ab93778bde5ff",
+    "status": "submitted"
+  },
+  "scrapy_part1_diff_removed.jsonl": {
+    "file_id": "file-RU22mr6E3Jtp7fJE24khXS",
+    "batch_id": "batch_688bd047c9d8819087dc7bd071270915",
+    "status": "submitted"
+  },
+  "scrapy_part1_original_prompt.jsonl": {
+    "file_id": "file-5tthWJuftc3XxEeYpYbGVj",
+    "batch_id": "batch_688d34b023fc81909cd2303b5f6b0423",
+    "status": "submitted"
+  },
+  "scrapy_part1_satd_filtered.jsonl": {
+    "file_id": "file-SG1yhcJLHxsZvr4RN3HXNr",
+    "batch_id": "batch_688d350ef30c8190886981e66ddc7eaf",
+    "status": "submitted"
+  }
+}
