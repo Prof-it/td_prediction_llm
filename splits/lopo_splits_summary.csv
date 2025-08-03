@@ -1,0 +1,6 @@
+Fold #,Test Project,#Commits (Test),Train Projects,#Commits (Train)
+1,fastapi,934,"flask, keras, requests, scrapy",20104
+2,flask,1967,"fastapi, keras, requests, scrapy",19071
+3,keras,9256,"fastapi, flask, requests, scrapy",11782
+4,requests,2749,"fastapi, flask, keras, scrapy",18289
+5,scrapy,6132,"fastapi, flask, keras, requests",14906
