@@ -78,3 +78,4 @@ typing_extensions==4.14.1
 tzdata==2025.2
 wcwidth==0.2.13
 xgboost==3.0.2
+imbalanced-learn==0.13.0
