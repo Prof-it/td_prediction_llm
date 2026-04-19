@@ -2,3 +2,9 @@
 /repos
 /.ipynb_checkpoints
 /venv*
+HUMAN_TODOS.md
+/data
+/artifacts
+/llm_batch
+__pycache__/
+*.pyc
