@@ -2,9 +2,9 @@
 /repos
 /.ipynb_checkpoints
 /venv*
-HUMAN_TODOS.md
 /data
-/artifacts
 /llm_batch
+/artifacts/models
+/artifacts/figures
 __pycache__/
 *.pyc
