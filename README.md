@@ -1,12 +1,6 @@
 # td_prediction_llm
 
-Source code and artifacts for the MOC2025 workshop paper (DECLARE conference) on
-predicting technical debt per commit via mining software repositories, an
-LLM-as-judge labeling workflow, and XAI-driven inspection.
-
-The repository extends a prior bachelor's thesis in which the pipeline suffered
-from label leakage, shortcut learning, and class-imbalance issues. The current
-codebase fixes those problems and adds a human-in-the-loop gold set.
+This repository contains source code for predicting technical debt introduced per commit. The pipeline mines repository history, labels commits via LLM-as-judge, trains classifiers (Random Forest, LightGBM, XGBoost), and explains predictions using SHAP, LIME, and permutation importance.
 
 ![Workflow](artifacts/figures/workflowdiagram.drawio.svg)
 
@@ -14,10 +8,10 @@ codebase fixes those problems and adds a human-in-the-loop gold set.
 
 ```bash
 make install       # Install dependencies
-make reproduce     # Run label → train → xai → analysis (uses cached data)
+make reproduce     # Run full pipeline (uses cached data)
 ```
 
-Outputs go to `artifacts/`. Next, follow [`HUMAN_TODOS.md`](HUMAN_TODOS.md) to label the gold set.
+Outputs go to `artifacts/`.
 
 ## Layout
 
@@ -33,13 +27,13 @@ src/td_prediction/         # Python package (all logic lives here)
     data/splits.py         # train/val/test + LOPO, feature-set selection
     models/
         trainer.py         # RF / LightGBM / XGBoost + imbalance handling
-        metrics.py         # PR-AUC, MCC, per-class F1 reporting
-        threshold.py       # threshold tuning on VAL only
+        metrics.py         # evaluation metrics (PR-AUC, MCC, F1, etc.)
+        threshold.py       # threshold tuning on validation set
         plots.py           # PR, ROC, class-balance plots
     xai/
-        shap_explainer.py  # SHAP
-        lime_explainer.py  # LIME (local + sampled global)
-        permutation.py     # permutation importance + ranking comparison
+        shap_explainer.py  # SHAP explanations
+        lime_explainer.py  # LIME explanations
+        permutation.py     # permutation importance
 
 notebooks/                 # Thin orchestrator notebooks (Marimo .py files)
     01_mine.py
@@ -49,82 +43,52 @@ notebooks/                 # Thin orchestrator notebooks (Marimo .py files)
     05_analysis.py
 
 scripts/                   # CLI entry points
-    run_pipeline.py        # mine | label | train | xai | analysis | all
-    build_v2_batches.py    # build new LLM batch JSONL files
+    run_pipeline.py        # mine | label | train | xai | analysis
+    build_v2_batches.py    # build LLM batch JSONL files
     submit_batches.py      # submit + poll OpenAI batches
 
-configs/                   # YAML configs (reserved; defaults live in config.py)
-tests/                     # smoke tests
+tests/                     # unit and integration tests
 artifacts/
-    figures/               # all generated PNG/PDF plots
-    results/               # metric CSVs, ranking CSVs, human review sheet
-    models/                # persisted .joblib bundles
-    legacy/                # original thesis notebook.py / notebook.ipynb
+    figures/               # plots (PR curves, SHAP, class balance, etc.)
+    results/               # metric CSVs, XAI rankings
+    models/                # trained model bundles
 
-data/                      # features_<repo>.csv (mined features per commit)
-llm_batch/                 # LLM batch input + output JSONL (large)
-splits/                    # cached CSV splits from legacy iterations
-presentation/              # workshop slides and QR code
+data/                      # features_*.csv (mined per commit)
+llm_batch/                 # LLM batch JSONL (input + output)
+splits/                    # cached train/val/test splits (time-based + LOPO)
 ```
 
-## Reproducing the paper from cached data
+## Reproducing from cached data
 
-The repo ships with the mined feature CSVs (`data/features_*.csv`) and the
-cached LLM-judge outputs (`llm_batch/*_output.jsonl`) from the thesis
-iterations, so the model-training and XAI stages are reproducible without
-re-cloning the 5 target repositories or calling the OpenAI API.
+The repo includes cached features and LLM outputs, so training and XAI are reproducible without re-mining repositories or calling external APIs.
 
 ```bash
-python -m venv venv && source venv/bin/activate
-pip install -r requirements.txt
+# One-liner
+make reproduce
 
-# End-to-end with caches (no mining, no API calls):
+# Or step-by-step
 python scripts/run_pipeline.py --stage label
 python scripts/run_pipeline.py --stage train --lopo
 python scripts/run_pipeline.py --stage xai --model lgbm
 python scripts/run_pipeline.py --stage analysis
 ```
 
-Outputs land under `artifacts/`.
-
 ## Running end-to-end from scratch
 
-1. Clone the target repos into `repos/<name>/` (see `config.REPOS` for the
-   expected branch per repo). Any path works — update `REPOS` in
-   `src/td_prediction/config.py` if you put them elsewhere.
+1. Clone target repositories into `repos/<name>/` (see `config.REPOS`).
 2. Re-mine features:
    ```bash
    python scripts/run_pipeline.py --stage mine --force
    ```
-3. Build v2 LLM prompts, submit to OpenAI Batches:
+3. Build and submit LLM-as-judge batches:
    ```bash
    export OPENAI_API_KEY=sk-...
    python scripts/build_v2_batches.py --variant v2_rubric_json --strip-satd-comments
    python scripts/submit_batches.py --glob 'llm_batch/*_v2_rubric_json.jsonl' --wait
    ```
-4. Parse labels + train + explain:
+4. Train and explain:
    ```bash
    python scripts/run_pipeline.py --stage label --variant v2_rubric_json
    python scripts/run_pipeline.py --stage train --lopo
    python scripts/run_pipeline.py --stage xai --model lgbm
    ```
-
-## Methodological choices (workshop paper)
-
-| Issue | Fix |
-|---|---|
-| Label leakage from `satd_delta` | dropped from feature set (see `config.LEAKAGE_COLS`) |
-| Label leakage via SATD keywords in the LLM prompt | `strip_comments()` removes comment lines from the diff before LLM review |
-| Shortcut learning from maturity features | ablation via `FeatureSet.NO_MATURITY` and `FeatureSet.CHANGE_ONLY` |
-| Threshold tuned on test | threshold tuned on a dedicated VAL split, frozen, reported on TEST |
-| Class imbalance | sweep over `none / class_weight / smote / smoteenn`; PR-AUC and MCC reported alongside F1 |
-| Prompt engineering | versioned rubric + structured JSON output, optional few-shot from human gold set |
-| XAI surface area | SHAP + LIME + permutation importance; top-K agreement table in `artifacts/results/xai_topk_*.csv` |
-| No human gold truth | `human_review.sample_for_review()` produces a stratified CSV for manual labeling; see `HUMAN_TODOS.md` |
-| Reproducibility | fixed seeds (`config.SEED=42`), pinned cutoff date, deterministic splits, `scripts/run_pipeline.py` |
-
-## Human-in-the-loop checklist
-
-See [`HUMAN_TODOS.md`](HUMAN_TODOS.md) for the current list of tasks that
-require your input (gold-set labeling, rubric approval, operating-point
-selection).
