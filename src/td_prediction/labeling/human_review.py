@@ -47,11 +47,10 @@ def sample_for_review(
     # Empty columns for the annotator.
     sample["label_human"] = ""
     sample["rationale_human"] = ""
-    sample["confidence_human"] = ""
     return sample[[
         "commit_uid", "repo_id", "commit_hash", "commit_url",
         satd_col, llm_col,
-        "label_human", "rationale_human", "confidence_human",
+        "label_human", "rationale_human",
         "lines_added", "lines_deleted", "files_changed", "hunks",
     ]]
 
