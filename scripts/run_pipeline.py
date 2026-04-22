@@ -43,7 +43,7 @@ def _refresh_labels(split, labels_df: "pd.DataFrame"):
     After re-labeling (e.g. v1→v2) the fresh labels must be merged in so
     training uses up-to-date labels, not stale ones baked into the split CSVs.
     """
-    label_cols = ["commit_uid", "label_llm", "label_td_satd", "label_td_combined"]
+    label_cols = ["commit_uid", "label_llm", "label_satd"]
     cols = [c for c in label_cols if c in labels_df.columns]
     fresh = labels_df[cols]
 

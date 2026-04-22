@@ -56,7 +56,7 @@ def _synthetic_df(n_per_repo: int = 60) -> pd.DataFrame:
                 "dmm_unit_size": float(rng.random()),
                 "dmm_unit_interfacing": float(rng.random()),
                 "satd_delta": int(rng.integers(-1, 3)),
-                "label_td_satd": int(rng.integers(0, 2)),
+                "label_satd": int(rng.integers(0, 2)),
                 "label_llm": int(rng.integers(0, 2)),
             })
     df = pd.DataFrame(rows)

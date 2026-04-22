@@ -20,7 +20,7 @@ def sample_for_review(
     *,
     n_per_cell: int = 25,
     llm_col: str = "label_llm",
-    satd_col: str = "label_td_satd",
+    satd_col: str = "label_satd",
     random_state: int = config.SEED,
 ) -> pd.DataFrame:
     """Stratified sample across the (SATD × LLM) 2×2 label grid.
@@ -65,7 +65,7 @@ def _safe_kappa(y_true, y_pred, fn) -> float:
         return float("nan")
 
 
-def agreement_table(sample: pd.DataFrame, *, llm_col: str = "label_llm", satd_col: str = "label_td_satd") -> pd.DataFrame:
+def agreement_table(sample: pd.DataFrame, *, llm_col: str = "label_llm", satd_col: str = "label_satd") -> pd.DataFrame:
     """Return per-judge agreement vs human (after the sheet is filled in).
 
     Note: Cohen's κ is computed on a stratified 2×2 sample (balanced by design).

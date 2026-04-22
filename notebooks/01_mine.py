@@ -66,7 +66,7 @@ def _(mining):
     print("Rows:", len(df))
     print("Per-repo:")
     print(df.groupby("repo_id").size())
-    print("SATD label positive rate:", df["label_td_satd"].mean())
+    print("SATD label positive rate:", df["label_satd"].mean())
     return (df,)
 
 

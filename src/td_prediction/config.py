@@ -74,7 +74,7 @@ FEATURE_COLS: list[str] = [
     "n_commits_file_past90d", "commits_count_file",
     "contributors_experience", "history_complexity",
     "dmm_unit_complexity", "dmm_unit_size", "dmm_unit_interfacing",
-    "satd_delta", "label_td_satd",
+    "satd_delta", "label_satd",
 ]
 
 
@@ -85,7 +85,7 @@ META_COLS: list[str] = [
 
 # Label columns — never used as input features.
 LABEL_COLS: list[str] = [
-    "label_td_satd", "label_llm", "label_td_combined", "label_human",
+    "label_satd", "label_llm", "label_human",
 ]
 
 # Features always dropped — either direct label proxies or temporal leakage.

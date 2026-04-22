@@ -1,7 +1,7 @@
 """SATD (Self-Admitted Technical Debt) regex labeling.
 
 Counts SATD-keyword comments added minus removed in a commit's diff.
-Produces an integer delta and a binary label `label_td_satd = 1 iff delta > 0`.
+Produces an integer delta and a binary label `label_satd = 1 iff delta > 0`.
 
 Weaknesses of this labeler (documented for the paper):
 - Only fires on literal keywords, misses paraphrased debt.
