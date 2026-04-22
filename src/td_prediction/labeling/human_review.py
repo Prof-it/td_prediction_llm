@@ -47,16 +47,31 @@ def sample_for_review(
     # Empty columns for the annotator.
     sample["label_human"] = ""
     sample["rationale_human"] = ""
-    return sample[[
+    cols = [
         "commit_uid", "repo_id", "commit_hash", "commit_url",
         satd_col, llm_col,
         "label_human", "rationale_human",
         "lines_added", "lines_deleted", "files_changed", "hunks",
-    ]]
+    ]
+    if "rationale_llm" in sample.columns:
+        cols.insert(cols.index(llm_col) + 1, "rationale_llm")
+    return sample[cols]
+
+
+def _safe_kappa(y_true, y_pred, fn) -> float:
+    try:
+        return float(fn(y_true, y_pred))
+    except Exception:
+        return float("nan")
 
 
 def agreement_table(sample: pd.DataFrame, *, llm_col: str = "label_llm", satd_col: str = "label_td_satd") -> pd.DataFrame:
-    """Return per-judge agreement vs human (after the sheet is filled in)."""
+    """Return per-judge agreement vs human (after the sheet is filled in).
+
+    Note: Cohen's κ is computed on a stratified 2×2 sample (balanced by design).
+    This κ reflects agreement on the balanced gold set, not the natural class
+    distribution (~5-10% positive). Do not compare directly to population-level κ.
+    """
     from sklearn.metrics import cohen_kappa_score, precision_score, recall_score, f1_score, accuracy_score
 
     sheet = sample.dropna(subset=["label_human"]).copy()
@@ -74,7 +89,7 @@ def agreement_table(sample: pd.DataFrame, *, llm_col: str = "label_llm", satd_co
             "precision": precision_score(y_true, y_pred, zero_division=0),
             "recall": recall_score(y_true, y_pred, zero_division=0),
             "f1": f1_score(y_true, y_pred, zero_division=0),
-            "cohen_kappa": cohen_kappa_score(y_true, y_pred),
+            "cohen_kappa": _safe_kappa(y_true, y_pred, cohen_kappa_score),
         })
     return pd.DataFrame(rows)
 

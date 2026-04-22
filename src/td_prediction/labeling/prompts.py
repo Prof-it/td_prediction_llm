@@ -15,7 +15,7 @@ from __future__ import annotations
 import json
 from typing import Callable
 
-PROMPT_VERSION = "v2.1"
+PROMPT_VERSION = "v2.2"
 
 
 RUBRIC = """Technical debt (TD) is any design or implementation shortcut in this
@@ -28,7 +28,7 @@ is evident from the change itself:
    high cyclomatic-complexity delta, or God-class growth — anything that
    increases cognitive load on future maintainers.
 2. Duplication: copy-pasted logic, code clones, or repeated fragments that
-   should be abstracted — the canonical Duplikationsschuld category.
+   should be abstracted — the canonical code duplication debt category.
 3. Coupling / change scattering: a change that tightly couples unrelated
    modules, introduces cyclic dependencies, or scatters a single concern
    across many files (Shotgun Surgery pattern).
@@ -36,9 +36,6 @@ is evident from the change itself:
    naming, dead code, or commented-out production code left in place.
 5. Missing safeguards: removed or weakened tests, silenced exceptions,
    disabled checks, or explicit deferrals ("temporary workaround").
-6. Documented shortcuts: a comment, docstring, or commit message where the
-   author admits the solution is incomplete or intentionally suboptimal
-   (self-admitted technical debt).
 
 Do NOT label as TD:
 - Routine refactors that *reduce* complexity or remove duplication.

@@ -26,6 +26,9 @@ def stage_label(args) -> None:
     from td_prediction import config, mining
     from td_prediction.labeling import llm_judge
     parsed = llm_judge.parse_results(variant_filter=args.variant)
+    # Persist raw parsed outputs (label, confidence, rationale per commit) for audit trail.
+    parsed_out = config.PATHS.results / f"parsed_labels_{args.variant}.csv"
+    parsed.to_csv(parsed_out, index=False)
     df = mining.load_all_features()
     df = llm_judge.attach_llm_labels(df, variant=args.variant, parsed=parsed)
     out = config.PATHS.data / "features_with_llm_labels.csv"
@@ -33,19 +36,52 @@ def stage_label(args) -> None:
     print(f"wrote {out} (positive rate: {df['label_llm'].mean():.3f})")
 
 
+def _refresh_labels(split, labels_df: "pd.DataFrame"):
+    """Replace label columns in a cached split with fresh labels from features file.
+
+    Splits are cached with whatever label_llm was current at generation time.
+    After re-labeling (e.g. v1→v2) the fresh labels must be merged in so
+    training uses up-to-date labels, not stale ones baked into the split CSVs.
+    """
+    label_cols = ["commit_uid", "label_llm", "label_td_satd", "label_td_combined"]
+    cols = [c for c in label_cols if c in labels_df.columns]
+    fresh = labels_df[cols]
+
+    from td_prediction.data.splits import Split
+    def _merge(df):
+        df = df.drop(columns=[c for c in cols if c != "commit_uid" and c in df.columns])
+        return df.merge(fresh, on="commit_uid", how="left")
+
+    result = Split(
+        train=_merge(split.train),
+        val=_merge(split.val),
+        test=_merge(split.test),
+        name=split.name,
+    )
+    for part_name, part in [("train", result.train), ("val", result.val), ("test", result.test)]:
+        n_missing = part["label_llm"].isna().sum() if "label_llm" in part.columns else len(part)
+        if n_missing > 0:
+            raise ValueError(
+                f"{n_missing} commits in {split.name}/{part_name} have no matching labels "
+                f"in features_with_llm_labels.csv. Re-run --stage label first."
+            )
+    return result
+
+
 def stage_train(args) -> None:
     import pandas as pd
-    from pathlib import Path
     from td_prediction import config
     from td_prediction.data.splits import FeatureSet, load_split
     from td_prediction.models import trainer
 
-    split = load_split(config.PATHS.splits, "time")
+    labels_df = pd.read_csv(config.PATHS.data / "features_with_llm_labels.csv")
+
+    split = _refresh_labels(load_split(config.PATHS.splits, "time"), labels_df)
     bundles = trainer.sweep(
         split=split, label_col="label_llm",
         model_kinds=("rf", "lgbm", "xgb"),
-        imbalance_strategies=("none", "class_weight", "smote"),
-        feature_sets=(FeatureSet.ALL, FeatureSet.NO_MATURITY, FeatureSet.CHANGE_ONLY),
+        imbalance_strategies=("none", "class_weight", "smote"),  # smoteenn excluded: too slow for sweep
+        feature_sets=(FeatureSet.ALL, FeatureSet.CHANGE_ONLY),
     )
     trainer.bundles_to_df(bundles).to_csv(config.PATHS.results / "metrics_time.csv", index=False)
     for b in bundles:
@@ -55,12 +91,12 @@ def stage_train(args) -> None:
     if args.lopo:
         lopo_bundles = []
         for repo in ["fastapi", "flask", "keras", "requests", "scrapy"]:
-            s = load_split(config.PATHS.splits, f"lopo_{repo}")
+            s = _refresh_labels(load_split(config.PATHS.splits, f"lopo_{repo}"), labels_df)
             lopo_bundles.extend(trainer.sweep(
                 split=s, label_col="label_llm",
                 model_kinds=("rf", "lgbm", "xgb"),
                 imbalance_strategies=("none", "class_weight"),
-                feature_sets=(FeatureSet.ALL, FeatureSet.NO_MATURITY),
+                feature_sets=(FeatureSet.ALL, FeatureSet.CHANGE_ONLY),
             ))
         trainer.bundles_to_df(lopo_bundles).to_csv(config.PATHS.results / "metrics_lopo.csv", index=False)
     print("training done.")
@@ -78,8 +114,8 @@ def stage_xai(args) -> None:
     b = joblib.load(bundle_path)
     model, cols = b["model"], b["feature_cols"]
     split = load_split(config.PATHS.splits, "time")
-    X_tr, _, _ = prepare_xy(split.train, label_col="label_llm", feature_set=FeatureSet.ALL, feature_cols=cols)
-    X_te, y_te, _ = prepare_xy(split.test, label_col="label_llm", feature_set=FeatureSet.ALL, feature_cols=cols)
+    X_tr, _, _, fill_vals = prepare_xy(split.train, label_col="label_llm", feature_set=FeatureSet.ALL, feature_cols=cols)
+    X_te, y_te, _, _ = prepare_xy(split.test, label_col="label_llm", feature_set=FeatureSet.ALL, feature_cols=cols, fill_values=fill_vals)
     shap_explainer.summary_plot(model, X_te, title=f"SHAP — {args.model}",
                                 out_path=config.PATHS.figures / f"shap_summary_{args.model}.png")
     shap_r = shap_explainer.feature_importance(model, X_te)
@@ -114,6 +150,9 @@ STAGES = {
 
 def main() -> None:
     _ensure_src_on_path()
+    import numpy as np
+    from td_prediction import config
+    np.random.seed(config.SEED)
     p = argparse.ArgumentParser()
     p.add_argument("--stage", choices=[*STAGES, "all"], default="all")
     p.add_argument("--force", action="store_true", help="re-mine even if cached")

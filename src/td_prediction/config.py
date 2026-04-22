@@ -88,14 +88,21 @@ LABEL_COLS: list[str] = [
     "label_td_satd", "label_llm", "label_td_combined", "label_human",
 ]
 
-# Features dropped to prevent label leakage from the SATD regex labeler.
-LEAKAGE_COLS: list[str] = ["satd_delta"]
+# Features always dropped — either direct label proxies or temporal leakage.
+# commits_count_file / contributors_experience / history_complexity are computed
+# from the full repo history up to the global cutoff, not up to each commit's
+# date, so they encode future information for early commits (temporal leakage).
+LEAKAGE_COLS: list[str] = [
+    "satd_delta",
+    "commits_count_file",
+    "contributors_experience",
+    "history_complexity",
+]
 
 # Maturity / history features flagged as shortcut-learning suspects.
 # These are included by default but an ablation run removes them.
 MATURITY_COLS: list[str] = [
-    "commits_count_file", "contributors_cum", "n_authors_till_now",
-    "contributors_experience", "history_complexity",
+    "contributors_cum", "n_authors_till_now",
     "n_commits_file_past90d", "churn_cum", "complexity_current_sum",
 ]
 

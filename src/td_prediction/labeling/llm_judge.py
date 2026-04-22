@@ -246,6 +246,7 @@ def aggregate_self_consistency(df: pd.DataFrame) -> pd.DataFrame:
         agreement=("label_int", lambda s: float(max(s.mean(), 1 - s.mean()))),
         n_trials=("label_int", "size"),
         mean_confidence=("confidence", "mean"),
+        rationale=("rationale", "first"),
     )
     return grouped
 
@@ -266,17 +267,21 @@ def attach_llm_labels(
         parsed = parse_results(variant_filter=variant)
     agg = aggregate_self_consistency(parsed[parsed["variant"] == variant])
     base = features_df.drop(
-        columns=[c for c in ("label_llm", "llm_agreement", "llm_confidence", "n_trials") if c in features_df.columns]
+        columns=[c for c in ("label_llm", "llm_agreement", "llm_confidence", "n_trials", "rationale_llm") if c in features_df.columns]
     )
     merged = base.merge(
         agg.rename(columns={
             "label_int": "label_llm",
             "agreement": "llm_agreement",
             "mean_confidence": "llm_confidence",
+            "rationale": "rationale_llm",
         }).drop(columns="variant"),
         on="commit_uid", how="left",
     )
     # Unlabeled commits default to 0 (No Debt) to match the legacy pipeline;
     # downstream code can filter on llm_agreement.notna() when stricter.
+    n_unparseable = merged["label_llm"].isna().sum()
+    if n_unparseable > 0:
+        print(f"[warn] {n_unparseable} commits had unparseable LLM responses — defaulting to label_llm=0")
     merged["label_llm"] = merged["label_llm"].fillna(0).astype(int)
     return merged

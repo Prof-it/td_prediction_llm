@@ -42,16 +42,52 @@ def is_py(m) -> bool:
 
 
 def strip_comments(diff_text: str) -> str:
-    """Remove comment lines from a unified diff.
+    """Remove SATD-keyword comments from a unified diff.
 
-    Used to build SATD-stripped prompts for the LLM-as-judge so the model
-    cannot trivially shortcut to the regex label.
+    Goal: the LLM-as-judge should not shortcut to the SATD-regex label
+    via literal TODO/FIXME/etc. keywords. Strategy: remove only comments
+    (full-line or inline) that contain an SATD keyword. Non-SATD comments
+    are preserved so the diff remains readable code.
+
+    This keeps string literals with '#' (URLs, etc.) intact, because we
+    only strip when a `#` begins a comment AND that comment contains an
+    SATD keyword.
     """
     kept = []
     for line in diff_text.split("\n"):
-        # Keep the leading +/- marker, check what follows.
         marker, rest = line[:1], line[1:]
-        if marker in {"+", "-"} and is_comment_or_docstring(rest):
-            continue
-        kept.append(line)
+        if marker in {"+", "-"}:
+            # Full-line comment with SATD keyword → drop entirely
+            if is_comment_or_docstring(rest) and config.SATD_PATTERN.search(rest):
+                continue
+            # Inline comment with SATD keyword → strip comment, keep code
+            hash_idx = _find_comment_hash(rest)
+            if hash_idx is not None and config.SATD_PATTERN.search(rest[hash_idx:]):
+                rest = rest[:hash_idx].rstrip()
+            kept.append(marker + rest)
+        else:
+            kept.append(line)
     return "\n".join(kept)
+
+
+def _find_comment_hash(code: str) -> int | None:
+    """Return the index of the first `#` that starts a comment, or None.
+
+    Tracks single/double-quote string state so `#` inside a string literal
+    is not mistaken for a comment marker.
+    """
+    in_single = in_double = False
+    i = 0
+    while i < len(code):
+        c = code[i]
+        if c == "\\" and i + 1 < len(code):  # escape next char
+            i += 2
+            continue
+        if c == "'" and not in_double:
+            in_single = not in_single
+        elif c == '"' and not in_single:
+            in_double = not in_double
+        elif c == "#" and not in_single and not in_double:
+            return i
+        i += 1
+    return None

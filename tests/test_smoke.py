@@ -86,12 +86,14 @@ def test_splits_and_feature_selection():
     assert sizes["train"] + sizes["val"] + sizes["test"] == len(df)
     assert sizes["train"] > sizes["val"] > 0
     cols_all = feature_columns(df, FeatureSet.ALL)
-    assert "satd_delta" not in cols_all  # leakage col
+    assert "satd_delta" not in cols_all           # label leakage
+    assert "commits_count_file" not in cols_all   # temporal leakage
+    assert "contributors_experience" not in cols_all
+    assert "history_complexity" not in cols_all
     assert "label_llm" not in cols_all
-    cols_change = feature_columns(df, FeatureSet.CHANGE_ONLY)
-    assert "commits_count_file" not in cols_change
     cols_mat = feature_columns(df, FeatureSet.MATURITY_ONLY)
-    assert "commits_count_file" in cols_mat
+    assert "contributors_cum" in cols_mat         # still a maturity feature
+    assert "commits_count_file" not in cols_mat   # moved to leakage
 
 
 def test_lopo_splits_one_repo_in_test():
@@ -105,10 +107,13 @@ def test_lopo_splits_one_repo_in_test():
 def test_prepare_xy_handles_nans():
     df = _synthetic_df()
     df.loc[0, "lines_added"] = np.nan
-    X, y, cols = prepare_xy(df, label_col="label_llm", feature_set=FeatureSet.ALL)
+    X, y, cols, fill_vals = prepare_xy(df, label_col="label_llm", feature_set=FeatureSet.ALL)
     assert not X.isna().any().any()
     assert len(y) == len(df)
     assert "satd_delta" not in cols
+    # val/test must use train fill values
+    X2, _, _, _ = prepare_xy(df, label_col="label_llm", feature_cols=cols, fill_values=fill_vals)
+    assert not X2.isna().any().any()
 
 
 def test_tune_threshold_returns_reasonable_value():
@@ -146,8 +151,8 @@ def test_metrics_evaluate_on_synthetic():
 
     df = _synthetic_df()
     split = make_time_splits(df)
-    X_tr, y_tr, cols = prepare_xy(split.train, label_col="label_llm")
-    X_te, y_te, _ = prepare_xy(split.test, label_col="label_llm", feature_cols=cols)
+    X_tr, y_tr, cols, fill_vals = prepare_xy(split.train, label_col="label_llm")
+    X_te, y_te, _, _ = prepare_xy(split.test, label_col="label_llm", feature_cols=cols, fill_values=fill_vals)
     model = RandomForestClassifier(n_estimators=20, random_state=0).fit(X_tr, y_tr)
     res = evaluate(
         model=model, X=X_te, y_true=y_te, threshold=0.5,

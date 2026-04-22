@@ -116,7 +116,7 @@ def make_lopo_splits(
 def feature_columns(df: pd.DataFrame, feature_set: FeatureSet = FeatureSet.ALL) -> list[str]:
     """Return the list of columns to use as model input features."""
     forbidden = set(config.META_COLS) | set(config.LABEL_COLS) | set(config.LEAKAGE_COLS) | {
-        "llm_agreement", "llm_confidence",
+        "llm_agreement", "llm_confidence", "n_trials", "rationale_llm",
     }
     candidates = [c for c in df.columns if c not in forbidden]
     # Keep only numeric
@@ -139,13 +139,21 @@ def prepare_xy(
     label_col: str = "label_llm",
     feature_set: FeatureSet = FeatureSet.ALL,
     feature_cols: list[str] | None = None,
-) -> tuple[pd.DataFrame, pd.Series, list[str]]:
+    fill_values: dict | None = None,
+) -> tuple[pd.DataFrame, pd.Series, list[str], dict]:
+    """Return (X, y, cols, fill_values).
+
+    `fill_values` maps column → mean used for NaN imputation. Pass the
+    dict returned from the training call into val/test calls so imputation
+    uses the training distribution, not the val/test distribution.
+    """
     cols = feature_cols or feature_columns(df, feature_set)
     X = df[cols].copy()
-    # Fill NaNs once here so SMOTE / sklearn do not crash downstream.
-    X = X.fillna(X.mean(numeric_only=True))
+    if fill_values is None:
+        fill_values = X.mean(numeric_only=True).to_dict()
+    X = X.fillna(fill_values)
     y = df[label_col].astype(int)
-    return X, y, cols
+    return X, y, cols, fill_values
 
 
 def save_split(split: Split, directory: Path) -> None:
