@@ -15,7 +15,7 @@ from __future__ import annotations
 import json
 from typing import Callable
 
-PROMPT_VERSION = "v2.2"
+PROMPT_VERSION = "v2.3"
 
 
 RUBRIC = """Technical debt (TD) is any design or implementation shortcut in this
@@ -42,6 +42,9 @@ Do NOT label as TD:
 - Mechanical changes (formatting, import reordering, dependency bumps).
 - Feature additions that are self-contained, well-scoped, and low-coupling.
 - Test-only additions with no production code change.
+- Commits whose only signal is a TODO/FIXME/HACK keyword — label the code
+  quality, not the comment. Keyword-based debt is captured separately by the
+  SATD regex baseline and must not drive this label.
 
 Respond ONLY with a JSON object of the shape:
 {"label": "yes" | "no", "confidence": 0.0-1.0, "rationale": "<= 25 words"}
