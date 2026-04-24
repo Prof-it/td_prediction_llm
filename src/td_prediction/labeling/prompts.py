@@ -4,8 +4,9 @@ Each template exposes the same interface:
     build(row: dict, diff_text: str, *, few_shot: list[dict] | None = None) -> str
 
 where `row` is a CSV row with the commit's metrics, and `diff_text` is
-the (optionally SATD-stripped) unified diff. `few_shot` is an optional
-list of exemplar dicts with keys {diff, metrics, label, rationale}.
+the (optionally SATD-stripped) unified diff (only containing .py files). 
+`few_shot` is an optional list of exemplar dicts 
+with keys {diff, metrics, label, rationale}.
 
 The rubric is the research-defensible definition of technical debt
 used across all variants. If you change the rubric, bump PROMPT_VERSION.
