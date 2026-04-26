@@ -50,6 +50,10 @@
     </div>
   </details>
   <button class="export-btn" onclick="exportCSV()">Export as human_review_sheet_b.csv</button>
+  <div style="margin:10px 0 20px 0;">
+    <label for="githubHandle"><b>Your GitHub handle or name:</b></label>
+    <input type="text" id="githubHandle" placeholder="e.g. octocat" style="margin-left:8px;">
+  </div>
   <table id="reviewTable">
     <thead>
       <tr>
@@ -171,22 +175,48 @@
 
     function exportCSV() {
       const { headers, rows } = parseCSV(csvData);
+      // Prompt for GitHub handle if not filled
+      let handle = document.getElementById('githubHandle').value.trim();
+      if (!handle) {
+        handle = prompt('Please enter your GitHub handle or name for attribution:');
+        if (!handle) {
+          alert('GitHub handle/name is required for export.');
+          return;
+        }
+        document.getElementById('githubHandle').value = handle;
+      }
+      // Get timestamp
+      const timestamp = new Date().toISOString();
       // Update rows with input values
       const tbody = document.querySelector('#reviewTable tbody');
       Array.from(tbody.rows).forEach((tr, i) => {
-        // Label Human
-        const labelInput = tr.querySelector('input[type="text"]');
-        if (labelInput) rows[i][7] = labelInput.value;
+        // Label Human (radio)
+        const radios = tr.querySelectorAll('input[type="radio"][data-col="7"]');
+        let labelVal = '';
+        radios.forEach(radio => { if (radio.checked) labelVal = radio.value; });
+        rows[i][7] = labelVal;
         // Rationale Human
-        const rationaleInput = tr.querySelector('textarea');
+        const rationaleInput = tr.querySelector('textarea[data-col="8"]');
         if (rationaleInput) rows[i][8] = rationaleInput.value;
+        // Append handle and timestamp to each row
+        rows[i][13] = handle;
+        rows[i][14] = timestamp;
       });
-      let out = headers.join(',') + '\n';
-      out += rows.map(row => row.map(escapeCSV).join(',')).join('\n');
+      // Compose CSV (add headers if missing)
+      let outHeaders = headers.slice();
+      if (outHeaders[13] !== 'reviewer') outHeaders[13] = 'reviewer';
+      if (outHeaders[14] !== 'timestamp') outHeaders[14] = 'timestamp';
+      let out = outHeaders.join(',') + '\n';
+      rows.forEach(r => {
+        while (r.length < 15) r.push('');
+        out += r.map(escapeCSV).join(',') + '\n';
+      });
       const blob = new Blob([out], { type: 'text/csv' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = 'human_review_sheet_b.csv';
+      // Format timestamp for filename (YYYYMMDD_HHMMSS)
+      const tsForFile = timestamp.replace(/[-:]/g, '').replace('T', '_').slice(0,15);
+      a.download = `human_review_sheet_${handle}_${tsForFile}.csv`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
