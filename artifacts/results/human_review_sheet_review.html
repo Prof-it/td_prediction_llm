@@ -14,6 +14,7 @@
 </head>
 <body>
   <h2>Human Review Sheet</h2>
+  <button id="toggleLLM" class="export-btn" onclick="toggleLLMColumns()">Hide LLM Columns</button>
   <details open style="margin-bottom:1em;">
     <summary><strong>Technical Debt (TD) Review Rubric & Instructions</strong></summary>
     <div style="background:#f9f9f9; border:1px solid #ccc; padding:1em; font-size:0.97em; max-width:900px;">
@@ -79,20 +80,82 @@
   </table>
   <button class="export-btn" onclick="exportCSV()">Export as human_review_sheet_b.csv</button>
   <script>
+
+        let llmColumnsVisible = true;
+        function toggleLLMColumns() {
+          llmColumnsVisible = !llmColumnsVisible;
+          const btn = document.getElementById('toggleLLM');
+          btn.textContent = llmColumnsVisible ? 'Hide LLM Columns' : 'Show LLM Columns';
+          // LLM columns: Label LLM (6), Rationale LLM (7)
+          const table = document.getElementById('reviewTable');
+          // Header
+          if (table.tHead) {
+            table.tHead.rows[0].cells[6].style.display = llmColumnsVisible ? '' : 'none';
+            table.tHead.rows[0].cells[7].style.display = llmColumnsVisible ? '' : 'none';
+          }
+          // Body
+          Array.from(table.tBodies[0].rows).forEach(row => {
+            row.cells[6].style.display = llmColumnsVisible ? '' : 'none';
+            row.cells[7].style.display = llmColumnsVisible ? '' : 'none';
+          });
+        }
     // CSV data (all rows from the original CSV)
     let csvData = '';
-    fetch('human_review_sheet.csv')
+    fetch('human_review_sheet_llm.csv')
     .then(response => response.text())
     .then(text => {
         csvData = text;
         renderTable();
     });
 
+    // Robust CSV parser supporting quoted fields, commas, and newlines
     function parseCSV(data) {
-      const lines = data.split('\n');
-      const headers = lines[0].split(',');
-      const rows = lines.slice(1).map(line => line.split(','));
-      return { headers, rows };
+      const rows = [];
+      let row = [];
+      let field = '';
+      let inQuotes = false;
+      let i = 0;
+      while (i < data.length) {
+        const char = data[i];
+        if (inQuotes) {
+          if (char === '"') {
+            if (data[i + 1] === '"') {
+              field += '"';
+              i++;
+            } else {
+              inQuotes = false;
+            }
+          } else {
+            field += char;
+          }
+        } else {
+          if (char === '"') {
+            inQuotes = true;
+          } else if (char === ',') {
+            row.push(field);
+            field = '';
+          } else if (char === '\n' || char === '\r') {
+            // Handle \r\n or \n\r as well
+            if (char === '\r' && data[i + 1] === '\n') i++;
+            row.push(field);
+            rows.push(row);
+            row = [];
+            field = '';
+          } else {
+            field += char;
+          }
+        }
+        i++;
+      }
+      // Add last field/row if not empty
+      if (field.length > 0 || row.length > 0) {
+        row.push(field);
+        rows.push(row);
+      }
+      // Remove empty trailing rows
+      while (rows.length && rows[rows.length - 1].every(x => x === '')) rows.pop();
+      const headers = rows.length > 0 ? rows[0] : [];
+      return { headers, rows: rows.slice(1) };
     }
 
     function escapeCSV(val) {
@@ -131,9 +194,13 @@
         // Label SATD
         tr.appendChild(document.createElement('td')).textContent = row[4];
         // Label LLM
-        tr.appendChild(document.createElement('td')).textContent = row[5];
+        const llmLabelTd = document.createElement('td');
+        llmLabelTd.textContent = row[5];
+        tr.appendChild(llmLabelTd);
         // Rationale LLM
-        tr.appendChild(document.createElement('td')).textContent = row[6];
+        const llmRationaleTd = document.createElement('td');
+        llmRationaleTd.textContent = row[6];
+        tr.appendChild(llmRationaleTd);
         // Label Human (exclusive radio buttons)
         const labelTd = document.createElement('td');
         const labelName = 'label_human_' + i;
@@ -171,6 +238,8 @@
         tr.appendChild(document.createElement('td')).textContent = row[12];
         tbody.appendChild(tr);
       });
+      // After rendering, apply LLM column visibility
+      setTimeout(toggleLLMColumns, 0);
     }
 
     function exportCSV() {
