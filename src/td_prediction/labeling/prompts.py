@@ -15,45 +15,73 @@ from __future__ import annotations
 import json
 from typing import Callable
 
-PROMPT_VERSION = "v2.1"
+PROMPT_VERSION = "v2.2"
+
 
 
 RUBRIC = """Technical debt (TD) is any design or implementation shortcut in this
-specific commit that trades short-term delivery for *higher future maintenance
-cost* (Cunningham 1992). The focus is on *code debt* introduced by the change.
-Label a commit as TD-introducing ('yes') when at least one of the following
-is evident from the change itself:
+specific commit that trades short-term delivery for higher future maintenance cost
+(Cunningham 1992). The assessment is STRICTLY limited to the provided Python (.py)
+diff only.
 
-1. Complexity shortcut: overly long methods, deeply nested conditionals,
-   high cyclomatic-complexity delta, or God-class growth — anything that
-   increases cognitive load on future maintainers.
-2. Duplication: copy-pasted logic, code clones, or repeated fragments that
-   should be abstracted — the canonical Duplikationsschuld category.
-3. Coupling / change scattering: a change that tightly couples unrelated
-   modules, introduces cyclic dependencies, or scatters a single concern
-   across many files (Shotgun Surgery pattern).
-4. Brittle or unclear code: hard-coded values, magic numbers, unclear
-   naming, dead code, or commented-out production code left in place.
-5. Missing safeguards: removed or weakened tests, silenced exceptions,
-   disabled checks, or explicit deferrals ("temporary workaround").
-6. Documented shortcuts: a comment, docstring, or commit message where the
-   author admits the solution is incomplete or intentionally suboptimal
-   (self-admitted technical debt).
+EPISTEMIC CONSTRAINTS:
+- Assume ONLY the shown .py diff is available.
+- Do NOT infer repository structure, unseen files, tests, or architecture.
+- Do NOT speculate about missing tests or dependencies unless explicitly shown.
+- If evidence is not directly visible in the diff, treat it as UNKNOWN (not TD).
+
+Label a commit as TD-introducing ("yes") ONLY if at least one of the following
+is clearly and directly observable in the diff:
+
+1. Local complexity increase:
+    - visibly longer methods/functions OR
+    - deeply nested conditionals OR
+    - multiple responsibilities added into one function
+
+2. Explicit duplication:
+    - repeated or copy-pasted code blocks within the diff
+    - near-identical logic with minor variations that should be abstracted
+
+3. Local coupling within diff:
+    - same concern spread across multiple modified Python files OR
+    - new direct dependency between modules visible in the diff
+    (Do NOT assume global architecture or cyclic dependencies)
+
+4. Concrete code quality issues:
+    - hard-coded values / magic numbers without explanation
+    - commented-out production code left in place
+    - clearly unused variables or dead code within the diff
+
+5. Removed or weakened safeguards (ONLY if explicitly visible):
+    - deletion of tests, assertions, validation, or error handling
+    - silenced exceptions (e.g., bare except, pass)
+    - explicit "temporary workaround" in code/comments
+
+6. Self-admitted technical debt:
+    - comments or messages explicitly stating the solution is temporary,
+      incomplete, or suboptimal
 
 Do NOT label as TD:
-- Routine refactors that *reduce* complexity or remove duplication.
-- Mechanical changes (formatting, import reordering, dependency bumps).
-- Feature additions that are self-contained, well-scoped, and low-coupling.
-- Test-only additions with no production code change.
+- Changes that reduce complexity or remove duplication
+- Mechanical or formatting-only changes
+- Self-contained feature additions with no visible shortcuts
+- Absence of tests or safeguards UNLESS their removal is explicitly shown
+- Any claim that relies on unseen files or assumed architecture
 
-Respond ONLY with a JSON object of the shape:
+DECISION RULE:
+- Default to "no" unless there is clear, direct evidence of TD in the diff.
+- When uncertain or evidence is weak → label "no".
+
+Respond ONLY with:
 {"label": "yes" | "no", "confidence": 0.0-1.0, "rationale": "<= 25 words"}
-No prose outside the JSON."""
+"""
 
 
 SYSTEM_PROMPT = (
-    "You are a senior software engineer performing code review on behalf of "
-    "a research study. Apply the rubric strictly and return JSON only."
+    "You are a senior software engineer performing strict diff-based code review. "
+    "Base your judgment ONLY on visible Python diff evidence. "
+    "Do not infer or speculate. When unsure, answer 'no'. "
+    "Return valid JSON only."
 )
 
 
