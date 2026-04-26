@@ -14,6 +14,41 @@
 </head>
 <body>
   <h2>Human Review Sheet</h2>
+  <details open style="margin-bottom:1em;">
+    <summary><strong>Technical Debt (TD) Review Rubric & Instructions</strong></summary>
+    <div style="background:#f9f9f9; border:1px solid #ccc; padding:1em; font-size:0.97em; max-width:900px;">
+      <p><strong>Technical debt (TD)</strong> is any design or implementation shortcut in this specific commit that trades short-term delivery for higher future maintenance cost (Cunningham 1992). The assessment is <b>STRICTLY limited to the provided Python (.py) diff only</b>.</p>
+      <ul>
+        <li><b>Assume ONLY the shown .py diff is available.</b></li>
+        <li>Do <b>NOT</b> infer repository structure, unseen files, tests, or architecture.</li>
+        <li>Do <b>NOT</b> speculate about missing tests or dependencies unless explicitly shown.</li>
+        <li>If evidence is not directly visible in the diff, treat it as UNKNOWN (not TD).</li>
+      </ul>
+      <p><b>Label a commit as TD-introducing ("yes") ONLY if at least one of the following is clearly and directly observable in the diff:</b></p>
+      <ol>
+        <li><b>Local complexity increase:</b> visibly longer methods/functions OR deeply nested conditionals OR multiple responsibilities added into one function</li>
+        <li><b>Explicit duplication:</b> repeated or copy-pasted code blocks within the diff; near-identical logic with minor variations that should be abstracted</li>
+        <li><b>Local coupling within diff:</b> same concern spread across multiple modified Python files OR new direct dependency between modules visible in the diff (do NOT assume global architecture or cyclic dependencies)</li>
+        <li><b>Concrete code quality issues:</b> hard-coded values / magic numbers without explanation; commented-out production code left in place; clearly unused variables or dead code within the diff</li>
+        <li><b>Removed or weakened safeguards (ONLY if explicitly visible):</b> deletion of tests, assertions, validation, or error handling; silenced exceptions (e.g., bare except, pass); explicit "temporary workaround" in code/comments</li>
+        <li><b>Self-admitted technical debt:</b> comments or messages explicitly stating the solution is temporary, incomplete, or suboptimal</li>
+      </ol>
+      <b>Do NOT label as TD:</b>
+      <ul>
+        <li>Changes that reduce complexity or remove duplication</li>
+        <li>Mechanical or formatting-only changes</li>
+        <li>Self-contained feature additions with no visible shortcuts</li>
+        <li>Absence of tests or safeguards UNLESS their removal is explicitly shown</li>
+        <li>Any claim that relies on unseen files or assumed architecture</li>
+      </ul>
+      <b>Decision Rule:</b>
+      <ul>
+        <li>Default to "no" unless there is clear, direct evidence of TD in the diff.</li>
+        <li>When uncertain or evidence is weak → label "no".</li>
+      </ul>
+      <!-- For human reviewers: Select Yes/No for label and provide a brief rationale. -->
+    </div>
+  </details>
   <button class="export-btn" onclick="exportCSV()">Export as human_review_sheet_b.csv</button>
   <table id="reviewTable">
     <thead>
@@ -95,14 +130,26 @@
         tr.appendChild(document.createElement('td')).textContent = row[5];
         // Rationale LLM
         tr.appendChild(document.createElement('td')).textContent = row[6];
-        // Label Human (input)
-        const labelInput = document.createElement('input');
-        labelInput.type = 'text';
-        labelInput.value = row[7] || '';
-        labelInput.placeholder = 'yes/no';
-        labelInput.setAttribute('data-row', i);
-        labelInput.setAttribute('data-col', 7);
-        tr.appendChild(document.createElement('td')).appendChild(labelInput);
+        // Label Human (exclusive radio buttons)
+        const labelTd = document.createElement('td');
+        const labelName = 'label_human_' + i;
+        ['yes', 'no'].forEach(val => {
+          const radio = document.createElement('input');
+          radio.type = 'radio';
+          radio.name = labelName;
+          radio.value = val;
+          radio.checked = (row[7] === val);
+          radio.setAttribute('data-row', i);
+          radio.setAttribute('data-col', 7);
+          radio.onclick = function() {
+            row[7] = val;
+          };
+          labelTd.appendChild(radio);
+          const label = document.createElement('label');
+          label.textContent = ' ' + val.charAt(0).toUpperCase() + val.slice(1) + ' ';
+          labelTd.appendChild(label);
+        });
+        tr.appendChild(labelTd);
         // Rationale Human (input)
         const rationaleInput = document.createElement('textarea');
         rationaleInput.value = row[8] || '';
