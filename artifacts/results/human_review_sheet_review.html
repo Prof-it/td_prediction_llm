@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Human Review Sheet</title>
+  <style>
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ccc; padding: 4px; }
+    th { background: #f0f0f0; }
+    input[type="text"] { width: 90px; }
+    textarea { width: 200px; height: 2em; }
+    .export-btn { margin: 10px 0; padding: 8px 16px; font-size: 1em; }
+  </style>
+</head>
+<body>
+  <h2>Human Review Sheet</h2>
+  <button class="export-btn" onclick="exportCSV()">Export as human_review_sheet_b.csv</button>
+  <table id="reviewTable">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Commit</th>
+        <th>Repo</th>
+        <th>Commit Hash</th>
+        <th>Diff Link</th>
+        <th>Label SATD</th>
+        <th>Label LLM</th>
+        <th>Rationale LLM</th>
+        <th>Label Human</th>
+        <th>Rationale Human</th>
+        <th>Lines Added</th>
+        <th>Lines Deleted</th>
+        <th>Files Changed</th>
+        <th>Hunks</th>
+      </tr>
+    </thead>
+    <tbody>
+      <!-- ROWS -->
+    </tbody>
+  </table>
+  <button class="export-btn" onclick="exportCSV()">Export as human_review_sheet_b.csv</button>
+  <script>
+    // CSV data (all rows from the original CSV)
+    let csvData = '';
+    fetch('human_review_sheet.csv')
+    .then(response => response.text())
+    .then(text => {
+        csvData = text;
+        renderTable();
+    });
+
+    function parseCSV(data) {
+      const lines = data.split('\n');
+      const headers = lines[0].split(',');
+      const rows = lines.slice(1).map(line => line.split(','));
+      return { headers, rows };
+    }
+
+    function escapeCSV(val) {
+      if (val == null) return '';
+      if (val.includes(',') || val.includes('"') || val.includes('\n')) {
+        return '"' + val.replace(/"/g, '""') + '"';
+      }
+      return val;
+    }
+
+    function renderTable() {
+      const { headers, rows } = parseCSV(csvData);
+      const tbody = document.querySelector('#reviewTable tbody');
+      tbody.innerHTML = '';
+      rows.forEach((row, i) => {
+        if (i >= 100) return; // Only show up to 100 rows
+        const tr = document.createElement('tr');
+        // Index column
+        tr.appendChild(document.createElement('td')).textContent = (i + 1);
+        // Commit (uid)
+        tr.appendChild(document.createElement('td')).textContent = row[0];
+        // Repo
+        tr.appendChild(document.createElement('td')).textContent = row[1];
+        // Commit hash
+        tr.appendChild(document.createElement('td')).textContent = row[2];
+        // Diff link
+        const linkTd = document.createElement('td');
+        if (row[3]) {
+          const a = document.createElement('a');
+          a.href = row[3];
+          a.target = '_blank';
+          a.textContent = 'View Diff';
+          linkTd.appendChild(a);
+        }
+        tr.appendChild(linkTd);
+        // Label SATD
+        tr.appendChild(document.createElement('td')).textContent = row[4];
+        // Label LLM
+        tr.appendChild(document.createElement('td')).textContent = row[5];
+        // Rationale LLM
+        tr.appendChild(document.createElement('td')).textContent = row[6];
+        // Label Human (input)
+        const labelInput = document.createElement('input');
+        labelInput.type = 'text';
+        labelInput.value = row[7] || '';
+        labelInput.placeholder = 'yes/no';
+        labelInput.setAttribute('data-row', i);
+        labelInput.setAttribute('data-col', 7);
+        tr.appendChild(document.createElement('td')).appendChild(labelInput);
+        // Rationale Human (input)
+        const rationaleInput = document.createElement('textarea');
+        rationaleInput.value = row[8] || '';
+        rationaleInput.placeholder = 'rationale';
+        rationaleInput.setAttribute('data-row', i);
+        rationaleInput.setAttribute('data-col', 8);
+        tr.appendChild(document.createElement('td')).appendChild(rationaleInput);
+        // Lines Added
+        tr.appendChild(document.createElement('td')).textContent = row[9];
+        // Lines Deleted
+        tr.appendChild(document.createElement('td')).textContent = row[10];
+        // Files Changed
+        tr.appendChild(document.createElement('td')).textContent = row[11];
+        // Hunks
+        tr.appendChild(document.createElement('td')).textContent = row[12];
+        tbody.appendChild(tr);
+      });
+    }
+
+    function exportCSV() {
+      const { headers, rows } = parseCSV(csvData);
+      // Update rows with input values
+      const tbody = document.querySelector('#reviewTable tbody');
+      Array.from(tbody.rows).forEach((tr, i) => {
+        // Label Human
+        const labelInput = tr.querySelector('input[type="text"]');
+        if (labelInput) rows[i][7] = labelInput.value;
+        // Rationale Human
+        const rationaleInput = tr.querySelector('textarea');
+        if (rationaleInput) rows[i][8] = rationaleInput.value;
+      });
+      let out = headers.join(',') + '\n';
+      out += rows.map(row => row.map(escapeCSV).join(',')).join('\n');
+      const blob = new Blob([out], { type: 'text/csv' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'human_review_sheet_b.csv';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+
+    renderTable();
+  </script>
+</body>
+</html>
