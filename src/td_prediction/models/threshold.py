@@ -36,6 +36,11 @@ def tune_threshold(
     - "mcc" — Matthews correlation coefficient.
     - "youden" — Youden's J (tpr - fpr).
     """
+    if (y_val == 1).sum() == 0:
+        raise ValueError(
+            "Validation set has no positive examples — cannot tune threshold. "
+            "Check your split: the val set must contain at least one TD commit."
+        )
     precisions, recalls, thresholds = precision_recall_curve(y_val, p_val)
     # precision_recall_curve returns len(thresholds) = len(precisions) - 1
     if objective == "f1":

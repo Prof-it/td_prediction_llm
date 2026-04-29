@@ -70,6 +70,13 @@ def _apply_resampling(X: pd.DataFrame, y: pd.Series, imbalance: str):
         return X, y
     if imbalance == "smote":
         from imblearn.over_sampling import SMOTE
+        k = 5  # SMOTE default k_neighbors
+        n_minority = int((y == 1).sum())
+        if n_minority < k + 1:
+            raise ValueError(
+                f"SMOTE requires ≥{k + 1} minority samples; got {n_minority}. "
+                "Use imbalance='class_weight' instead."
+            )
         X_r, y_r = SMOTE(random_state=config.SEED).fit_resample(X, y)
         return X_r, y_r
     if imbalance == "smoteenn":
@@ -105,9 +112,9 @@ def train_bundle(
     threshold_objective: str = "f1",
     verbose: bool = False,
 ) -> TrainedBundle:
-    X_tr, y_tr, cols = prepare_xy(split.train, label_col=label_col, feature_set=feature_set)
-    X_va, y_va, _ = prepare_xy(split.val, label_col=label_col, feature_set=feature_set, feature_cols=cols)
-    X_te, y_te, _ = prepare_xy(split.test, label_col=label_col, feature_set=feature_set, feature_cols=cols)
+    X_tr, y_tr, cols, fill_vals = prepare_xy(split.train, label_col=label_col, feature_set=feature_set)
+    X_va, y_va, _, _ = prepare_xy(split.val, label_col=label_col, feature_set=feature_set, feature_cols=cols, fill_values=fill_vals)
+    X_te, y_te, _, _ = prepare_xy(split.test, label_col=label_col, feature_set=feature_set, feature_cols=cols, fill_values=fill_vals)
 
     n_pos, n_neg = int((y_tr == 1).sum()), int((y_tr == 0).sum())
     model = _new_model(model_kind, imbalance=imbalance, n_pos=n_pos, n_neg=n_neg)

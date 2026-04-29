@@ -8,3 +8,5 @@
 /artifacts/figures
 __pycache__/
 *.pyc
+artifacts/diffs/*
+.env

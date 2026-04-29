@@ -124,7 +124,7 @@ def _row_for_commit(
         "dmm_unit_size": c.dmm_unit_size,
         "dmm_unit_interfacing": c.dmm_unit_interfacing,
         "satd_delta": satd,
-        "label_td_satd": 1 if satd > 0 else 0,
+        "label_satd": 1 if satd > 0 else 0,
     }
 
 

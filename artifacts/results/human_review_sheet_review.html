@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Human Review Sheet</title>
+  <style>
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ccc; padding: 4px; }
+    th { background: #f0f0f0; }
+    input[type="text"] { width: 90px; }
+    textarea { width: 200px; height: 2em; }
+    .export-btn { margin: 10px 0; padding: 8px 16px; font-size: 1em; }
+  </style>
+</head>
+<body>
+  <h2>Human Review Sheet</h2>
+  <button id="toggleLLM" class="export-btn" onclick="toggleLLMColumns()">Hide LLM Columns</button>
+  <details open style="margin-bottom:1em;">
+    <summary><strong>Technical Debt (TD) Review Rubric & Instructions</strong></summary>
+    <div style="background:#f9f9f9; border:1px solid #ccc; padding:1em; font-size:0.97em; max-width:900px;">
+      <p><strong>Technical debt (TD)</strong> is any design or implementation shortcut in this specific commit that trades short-term delivery for higher future maintenance cost (Cunningham 1992). The assessment is <b>STRICTLY limited to the provided Python (.py) diff only</b>.</p>
+      <ul>
+        <li><b>Assume ONLY the shown .py diff is available.</b></li>
+        <li>Do <b>NOT</b> infer repository structure, unseen files, tests, or architecture.</li>
+        <li>Do <b>NOT</b> speculate about missing tests or dependencies unless explicitly shown.</li>
+        <li>If evidence is not directly visible in the diff, treat it as UNKNOWN (not TD).</li>
+      </ul>
+      <p><b>Label a commit as TD-introducing ("yes") ONLY if at least one of the following is clearly and directly observable in the diff:</b></p>
+      <ol>
+        <li><b>Local complexity increase:</b> visibly longer methods/functions OR deeply nested conditionals OR multiple responsibilities added into one function</li>
+        <li><b>Explicit duplication:</b> repeated or copy-pasted code blocks within the diff; near-identical logic with minor variations that should be abstracted</li>
+        <li><b>Local coupling within diff:</b> same concern spread across multiple modified Python files OR new direct dependency between modules visible in the diff (do NOT assume global architecture or cyclic dependencies)</li>
+        <li><b>Concrete code quality issues:</b> hard-coded values / magic numbers without explanation; commented-out production code left in place; clearly unused variables or dead code within the diff</li>
+        <li><b>Removed or weakened safeguards (ONLY if explicitly visible):</b> deletion of tests, assertions, validation, or error handling; silenced exceptions (e.g., bare except, pass); explicit "temporary workaround" in code/comments</li>
+        <li><b>Self-admitted technical debt:</b> comments or messages explicitly stating the solution is temporary, incomplete, or suboptimal</li>
+      </ol>
+      <b>Do NOT label as TD:</b>
+      <ul>
+        <li>Changes that reduce complexity or remove duplication</li>
+        <li>Mechanical or formatting-only changes</li>
+        <li>Self-contained feature additions with no visible shortcuts</li>
+        <li>Absence of tests or safeguards UNLESS their removal is explicitly shown</li>
+        <li>Any claim that relies on unseen files or assumed architecture</li>
+      </ul>
+      <b>Decision Rule:</b>
+      <ul>
+        <li>Default to "no" unless there is clear, direct evidence of TD in the diff.</li>
+        <li>When uncertain or evidence is weak → label "no".</li>
+      </ul>
+      <!-- For human reviewers: Select Yes/No for label and provide a brief rationale. -->
+    </div>
+  </details>
+  <button class="export-btn" onclick="exportCSV()">Export as human_review_sheet_[your_handle/name]_[timestempt].csv</button>
+  <div style="margin:10px 0 20px 0;">
+    <label for="githubHandle"><b>Your GitHub handle or name:</b></label>
+    <input type="text" id="githubHandle" placeholder="e.g. octocat" style="margin-left:8px;">
+  </div>
+  <table id="reviewTable">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Commit</th>
+        <th>Repo</th>
+        <th>Commit Hash</th>
+        <th>Diff Link</th>
+        <th>Label SATD</th>
+        <th>Label LLM</th>
+        <th>Rationale LLM</th>
+        <th>Label Human</th>
+        <th>Rationale Human</th>
+        <th>Lines Added</th>
+        <th>Lines Deleted</th>
+        <th>Files Changed</th>
+        <th>Hunks</th>
+      </tr>
+    </thead>
+    <tbody>
+      <!-- ROWS -->
+    </tbody>
+  </table>
+  <button class="export-btn" onclick="exportCSV()">Export as human_review_sheet_b.csv</button>
+  <script>
+
+        let llmColumnsVisible = true;
+        function toggleLLMColumns() {
+          llmColumnsVisible = !llmColumnsVisible;
+          const btn = document.getElementById('toggleLLM');
+          btn.textContent = llmColumnsVisible ? 'Hide LLM Columns' : 'Show LLM Columns';
+          // LLM columns: Label LLM (6), Rationale LLM (7)
+          const table = document.getElementById('reviewTable');
+          // Header
+          if (table.tHead) {
+            table.tHead.rows[0].cells[6].style.display = llmColumnsVisible ? '' : 'none';
+            table.tHead.rows[0].cells[7].style.display = llmColumnsVisible ? '' : 'none';
+          }
+          // Body
+          Array.from(table.tBodies[0].rows).forEach(row => {
+            row.cells[6].style.display = llmColumnsVisible ? '' : 'none';
+            row.cells[7].style.display = llmColumnsVisible ? '' : 'none';
+          });
+        }
+    // CSV data (all rows from the original CSV)
+    let csvData = '';
+    fetch('human_review_sheet_llm.csv')
+    .then(response => response.text())
+    .then(text => {
+        csvData = text;
+        renderTable();
+    });
+
+    // Robust CSV parser supporting quoted fields, commas, and newlines
+    function parseCSV(data) {
+      const rows = [];
+      let row = [];
+      let field = '';
+      let inQuotes = false;
+      let i = 0;
+      while (i < data.length) {
+        const char = data[i];
+        if (inQuotes) {
+          if (char === '"') {
+            if (data[i + 1] === '"') {
+              field += '"';
+              i++;
+            } else {
+              inQuotes = false;
+            }
+          } else {
+            field += char;
+          }
+        } else {
+          if (char === '"') {
+            inQuotes = true;
+          } else if (char === ',') {
+            row.push(field);
+            field = '';
+          } else if (char === '\n' || char === '\r') {
+            // Handle \r\n or \n\r as well
+            if (char === '\r' && data[i + 1] === '\n') i++;
+            row.push(field);
+            rows.push(row);
+            row = [];
+            field = '';
+          } else {
+            field += char;
+          }
+        }
+        i++;
+      }
+      // Add last field/row if not empty
+      if (field.length > 0 || row.length > 0) {
+        row.push(field);
+        rows.push(row);
+      }
+      // Remove empty trailing rows
+      while (rows.length && rows[rows.length - 1].every(x => x === '')) rows.pop();
+      const headers = rows.length > 0 ? rows[0] : [];
+      return { headers, rows: rows.slice(1) };
+    }
+
+    function escapeCSV(val) {
+      if (val == null) return '';
+      if (val.includes(',') || val.includes('"') || val.includes('\n')) {
+        return '"' + val.replace(/"/g, '""') + '"';
+      }
+      return val;
+    }
+
+    function renderTable() {
+      const { headers, rows } = parseCSV(csvData);
+      const tbody = document.querySelector('#reviewTable tbody');
+      tbody.innerHTML = '';
+      rows.forEach((row, i) => {
+        if (i >= 100) return; // Only show up to 100 rows
+        const tr = document.createElement('tr');
+        // Index column
+        tr.appendChild(document.createElement('td')).textContent = (i + 1);
+        // Commit (uid)
+        tr.appendChild(document.createElement('td')).textContent = row[0];
+        // Repo
+        tr.appendChild(document.createElement('td')).textContent = row[1];
+        // Commit hash
+        tr.appendChild(document.createElement('td')).textContent = row[2];
+        // Diff link
+        const linkTd = document.createElement('td');
+        if (row[3]) {
+          const a = document.createElement('a');
+          a.href = row[3];
+          a.target = '_blank';
+          a.textContent = 'View Diff';
+          linkTd.appendChild(a);
+        }
+        tr.appendChild(linkTd);
+        // Label SATD
+        tr.appendChild(document.createElement('td')).textContent = row[4];
+        // Label LLM
+        const llmLabelTd = document.createElement('td');
+        llmLabelTd.textContent = row[5];
+        tr.appendChild(llmLabelTd);
+        // Rationale LLM
+        const llmRationaleTd = document.createElement('td');
+        llmRationaleTd.textContent = row[6];
+        tr.appendChild(llmRationaleTd);
+        // Label Human (exclusive radio buttons)
+        const labelTd = document.createElement('td');
+        const labelName = 'label_human_' + i;
+        ['yes', 'no'].forEach(val => {
+          const radio = document.createElement('input');
+          radio.type = 'radio';
+          radio.name = labelName;
+          radio.value = val;
+          radio.checked = (row[7] === val);
+          radio.setAttribute('data-row', i);
+          radio.setAttribute('data-col', 7);
+          radio.onclick = function() {
+            row[7] = val;
+          };
+          labelTd.appendChild(radio);
+          const label = document.createElement('label');
+          label.textContent = ' ' + val.charAt(0).toUpperCase() + val.slice(1) + ' ';
+          labelTd.appendChild(label);
+        });
+        tr.appendChild(labelTd);
+        // Rationale Human (input)
+        const rationaleInput = document.createElement('textarea');
+        rationaleInput.value = row[8] || '';
+        rationaleInput.placeholder = 'rationale';
+        rationaleInput.setAttribute('data-row', i);
+        rationaleInput.setAttribute('data-col', 8);
+        tr.appendChild(document.createElement('td')).appendChild(rationaleInput);
+        // Lines Added
+        tr.appendChild(document.createElement('td')).textContent = row[9];
+        // Lines Deleted
+        tr.appendChild(document.createElement('td')).textContent = row[10];
+        // Files Changed
+        tr.appendChild(document.createElement('td')).textContent = row[11];
+        // Hunks
+        tr.appendChild(document.createElement('td')).textContent = row[12];
+        tbody.appendChild(tr);
+      });
+      // After rendering, apply LLM column visibility
+      setTimeout(toggleLLMColumns, 0);
+    }
+
+    function exportCSV() {
+      const { headers, rows } = parseCSV(csvData);
+      // Prompt for GitHub handle if not filled
+      let handle = document.getElementById('githubHandle').value.trim();
+      if (!handle) {
+        handle = prompt('Please enter your GitHub handle or name for attribution:');
+        if (!handle) {
+          alert('GitHub handle/name is required for export.');
+          return;
+        }
+        document.getElementById('githubHandle').value = handle;
+      }
+      // Get timestamp
+      const timestamp = new Date().toISOString();
+      // Update rows with input values
+      const tbody = document.querySelector('#reviewTable tbody');
+      Array.from(tbody.rows).forEach((tr, i) => {
+        // Label Human (radio)
+        const radios = tr.querySelectorAll('input[type="radio"][data-col="7"]');
+        let labelVal = '';
+        radios.forEach(radio => { if (radio.checked) labelVal = radio.value; });
+        rows[i][7] = labelVal;
+        // Rationale Human
+        const rationaleInput = tr.querySelector('textarea[data-col="8"]');
+        if (rationaleInput) rows[i][8] = rationaleInput.value;
+        // Append handle and timestamp to each row
+        rows[i][13] = handle;
+        rows[i][14] = timestamp;
+      });
+      // Compose CSV (add headers if missing)
+      let outHeaders = headers.slice();
+      if (outHeaders[13] !== 'reviewer') outHeaders[13] = 'reviewer';
+      if (outHeaders[14] !== 'timestamp') outHeaders[14] = 'timestamp';
+      let out = outHeaders.join(',') + '\n';
+      rows.forEach(r => {
+        while (r.length < 15) r.push('');
+        out += r.map(escapeCSV).join(',') + '\n';
+      });
+      const blob = new Blob([out], { type: 'text/csv' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      // Format timestamp for filename (YYYYMMDD_HHMMSS)
+      const tsForFile = timestamp.replace(/[-:]/g, '').replace('T', '_').slice(0,15);
+      a.download = `human_review_sheet_${handle}_${tsForFile}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+
+    renderTable();
+  </script>
+</body>
+</html>

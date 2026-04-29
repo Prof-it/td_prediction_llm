@@ -70,8 +70,8 @@ def _(config, pd):
     df["commit_dt"] = pd.to_datetime(df["commit_date"], utc=True)
     summary = df.groupby("repo_id").agg(
         n=("commit_uid", "size"),
-        satd_pos=("label_td_satd", "sum"),
-        satd_rate=("label_td_satd", "mean"),
+        satd_pos=("label_satd", "sum"),
+        satd_rate=("label_satd", "mean"),
         llm_pos=("label_llm", "sum"),
         llm_rate=("label_llm", "mean"),
     )
