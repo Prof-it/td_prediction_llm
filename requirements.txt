@@ -33,12 +33,13 @@ lightgbm==4.6.0
 lime==0.2.0.1
 lizard==1.17.10
 llvmlite==0.44.0
+marimo==0.23.1
 matplotlib==3.10.3
 matplotlib-inline==0.1.7
 nest-asyncio==1.6.0
 networkx==3.5
 numba==0.61.2
-numpy==2.2.6
+numpy<2
 openai==1.95.1
 packaging==25.0
 pandas==2.3.1
@@ -57,7 +58,7 @@ Pygments==2.19.2
 pyparsing==3.2.3
 python-dateutil==2.9.0.post0
 pytz==2025.2
-pyzmq==27.0.0
+pyzmq>=27.1.0
 scikit-image==0.25.2
 scikit-learn==1.7.0
 scipy==1.16.0
@@ -78,4 +79,6 @@ typing_extensions==4.14.1
 tzdata==2025.2
 wcwidth==0.2.13
 xgboost==3.0.2
-imbalanced-learn==0.13.0
+imbalanced-learn>=0.14.0
+pytest>=8.0.0
+PyYAML>=6.0.1

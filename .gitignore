@@ -2,3 +2,9 @@
 /repos
 /.ipynb_checkpoints
 /venv*
+/data
+/llm_batch
+/artifacts/models
+/artifacts/figures
+__pycache__/
+*.pyc
