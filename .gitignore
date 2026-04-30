@@ -2,7 +2,7 @@
 /repos
 /.ipynb_checkpoints
 /venv*
-/data
+# /data — committed for reproducibility
 /llm_batch
 /artifacts/models
 /artifacts/figures

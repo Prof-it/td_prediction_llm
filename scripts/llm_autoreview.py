@@ -1,11 +1,17 @@
 import os
+import sys
+from pathlib import Path
+
+# allow importing from src/
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+
 from dotenv import load_dotenv
 import urllib.request
 import csv
 import json
 import openai
 from openai.types.chat import ChatCompletionMessageParam
-from pathlib import Path
+from td_prediction.config import LLM_MODEL, LLM_MODEL_DATE, LLM_TEMPERATURE
 
 load_dotenv()
 # --- CONFIG ---
@@ -72,11 +78,11 @@ Respond ONLY with:\n
 """
 
 # --- SETTINGS ---
-OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4-turbo")
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
-INPUT_CSV = Path("artifacts/results/human_review_sheet.csv")
+OPENAI_MODEL   = LLM_MODEL          # pinned in config.py — do not override via env
+INPUT_CSV  = Path("artifacts/results/human_review_sheet_a_20260424_021700.csv")
 OUTPUT_CSV = Path("artifacts/results/human_review_sheet_llm.csv")
-DIFFS_DIR = Path("artifacts/diffs/")  # Assumes diffs are stored as {commit_hash}.diff
+DIFFS_DIR  = Path("artifacts/diffs/")
 
 # --- LLM CALL ---
 def call_llm(metrics_row, diff_text):
@@ -90,7 +96,7 @@ def call_llm(metrics_row, diff_text):
     response = client.chat.completions.create(
         model=OPENAI_MODEL,
         messages=messages,
-        temperature=0.0,
+        temperature=LLM_TEMPERATURE,
         max_tokens=128,
     )
     return response.choices[0].message.content
@@ -121,43 +127,63 @@ def fetch_diff_from_commit_url(commit_url, diff_path):
         print(f"Failed to fetch diff from {diff_url}: {e}")
         return False
 
+def filter_py_diff(diff_text: str) -> str:
+    """Keep only hunks belonging to .py files."""
+    lines = diff_text.splitlines(keepends=True)
+    result, include = [], False
+    for line in lines:
+        if line.startswith("diff --git"):
+            include = line.endswith(".py\n") or ".py " in line
+        if include:
+            result.append(line)
+    return "".join(result)
+
+
 def main():
     if not OPENAI_API_KEY:
         raise RuntimeError("OPENAI_API_KEY environment variable not set.")
-    openai.api_key = OPENAI_API_KEY
-    with INPUT_CSV.open() as fin, OUTPUT_CSV.open("w", newline='') as fout:
-        reader = csv.DictReader(fin)
-        fieldnames = reader.fieldnames + ["label_llm", "rationale_llm"]
-        writer = csv.DictWriter(fout, fieldnames=fieldnames)
+    DIFFS_DIR.mkdir(parents=True, exist_ok=True)
+
+    with INPUT_CSV.open() as fin:
+        reader = csv.DictReader(fin, delimiter=';')
+        base_fields = [f for f in reader.fieldnames if f not in ("label_llm", "rationale_llm", "confidence_llm")]
+        fieldnames = base_fields + ["label_llm", "confidence_llm", "rationale_llm"]
+        rows = list(reader)
+
+    with OUTPUT_CSV.open("w", newline='') as fout:
+        writer = csv.DictWriter(fout, fieldnames=fieldnames, extrasaction="ignore")
         writer.writeheader()
-        for row in reader:
+        for i, row in enumerate(rows, 1):
             commit_hash = row["commit_hash"]
             diff_path = DIFFS_DIR / f"{commit_hash}.diff"
-            # Try to find or fetch the diff
             if not diff_path.exists():
                 commit_url = row.get("commit_url")
                 if commit_url:
                     fetched = fetch_diff_from_commit_url(commit_url, diff_path)
                     if not fetched:
-                        print(f"Warning: Diff not found for {commit_hash}, skipping.")
+                        print(f"[{i}/{len(rows)}] SKIP {commit_hash}: diff unavailable")
                         continue
                 else:
-                    print(f"Warning: Diff not found for {commit_hash} and no commit_url, skipping.")
+                    print(f"[{i}/{len(rows)}] SKIP {commit_hash}: no commit_url")
                     continue
             with diff_path.open() as df:
-                diff_text = df.read()
+                diff_text = filter_py_diff(df.read())
             metrics_summary = f"LoC+{row['lines_added']}/-{row['lines_deleted']} | files={row['files_changed']} | hunks={row['hunks']}"
             try:
                 llm_response = call_llm(metrics_summary, diff_text)
                 llm_json = json.loads(llm_response)
                 row["label_llm"] = llm_json.get("label", "")
+                row["confidence_llm"] = llm_json.get("confidence", "")
                 row["rationale_llm"] = llm_json.get("rationale", "")
+                print(f"[{i}/{len(rows)}] {commit_hash[:8]} → {row['label_llm']} ({row['confidence_llm']})")
             except Exception as e:
-                print(f"Error for {commit_hash}: {e}")
+                print(f"[{i}/{len(rows)}] ERROR {commit_hash}: {e}")
                 row["label_llm"] = "error"
+                row["confidence_llm"] = ""
                 row["rationale_llm"] = str(e)
             writer.writerow(row)
-    print(f"Done. Output written to {OUTPUT_CSV}")
+
+    print(f"\nDone. Model={OPENAI_MODEL} (pinned {LLM_MODEL_DATE}). Output: {OUTPUT_CSV}")
 
 if __name__ == "__main__":
     main()

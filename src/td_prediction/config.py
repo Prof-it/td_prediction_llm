@@ -151,8 +151,9 @@ PATHS = Paths().ensure()
 # The main ML training pipeline uses the existing v1 cached labels by
 # default (PARSE_VARIANT below). Upgrade to "v2_rubric_json" only after
 # running at least tier-1 to validate that v2 agrees better with humans.
-LLM_MODEL: str = "gpt-5.4-mini"  # v2 re-label ~$7 via batch API
-LLM_MODEL_V1: str = "gpt-4.1-mini"  # model used for cached v1 outputs
+LLM_MODEL: str = "gpt-5.4-mini-2026-03-17"  # v2 re-label ~$7 via batch API
+LLM_MODEL_DATE: str = "2026-03-17"           # model snapshot date — for reproducibility
+LLM_MODEL_V1: str = "gpt-4.1-mini"       # model used for cached v1 outputs
 LLM_TEMPERATURE: float = 0.0
 PARSE_VARIANT: str = "v1_satd_filtered"  # variant driving label_llm today
 # For self-consistency the pipeline can optionally re-query N times with
