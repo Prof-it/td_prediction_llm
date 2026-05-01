@@ -115,9 +115,10 @@ def stage_xai(args) -> None:
         raise FileNotFoundError("No trained bundle found. Run --stage train first.")
     b = joblib.load(bundle_path)
     model, cols = b["model"], b["feature_cols"]
-    split = load_split(config.PATHS.splits, "time")
-    X_tr, _, _, fill_vals = prepare_xy(split.train, label_col="label_llm", feature_set=FeatureSet.ALL, feature_cols=cols)
-    X_te, y_te, _, _ = prepare_xy(split.test, label_col="label_llm", feature_set=FeatureSet.ALL, feature_cols=cols, fill_values=fill_vals)
+    labels_df = pd.read_csv(config.PATHS.data / "features_with_llm_labels.csv")
+    split = _refresh_labels(load_split(config.PATHS.splits, "time"), labels_df)
+    X_tr, _, _, fill_vals = prepare_xy(split.train, label_col=args.label_col, feature_set=FeatureSet.ALL, feature_cols=cols)
+    X_te, y_te, _, _ = prepare_xy(split.test, label_col=args.label_col, feature_set=FeatureSet.ALL, feature_cols=cols, fill_values=fill_vals)
     shap_explainer.summary_plot(model, X_te, title=f"SHAP — {args.model}",
                                 out_path=config.PATHS.figures / f"shap_summary_{args.model}.png")
     shap_r = shap_explainer.feature_importance(model, X_te)

@@ -32,7 +32,7 @@
         <li><b>Local coupling within diff:</b> same concern spread across multiple modified Python files OR new direct dependency between modules visible in the diff (do NOT assume global architecture or cyclic dependencies)</li>
         <li><b>Concrete code quality issues:</b> hard-coded values / magic numbers without explanation; commented-out production code left in place; clearly unused variables or dead code within the diff</li>
         <li><b>Removed or weakened safeguards (ONLY if explicitly visible):</b> deletion of tests, assertions, validation, or error handling; silenced exceptions (e.g., bare except, pass); explicit "temporary workaround" in code/comments</li>
-        <li><b>Self-admitted technical debt:</b> comments or messages explicitly stating the solution is temporary, incomplete, or suboptimal</li>
+        <li><b>Self-admitted technical debt:</b> comments or messages explicitly stating the solution is temporary, incomplete, or suboptimal — <b>ONLY if</b> the shortcut described is also introduced in this same commit. Adding a TODO/FIXME/HACK comment to <em>pre-existing</em> code does NOT count: it acknowledges existing debt but does not introduce new debt in this commit.</li>
       </ol>
       <b>Do NOT label as TD:</b>
       <ul>
@@ -41,6 +41,7 @@
         <li>Self-contained feature additions with no visible shortcuts</li>
         <li>Absence of tests or safeguards UNLESS their removal is explicitly shown</li>
         <li>Any claim that relies on unseen files or assumed architecture</li>
+        <li>A SATD keyword (TODO, FIXME, HACK, etc.) added as a comment on code that already existed before this commit — the debt pre-dates this change</li>
       </ul>
       <b>Decision Rule:</b>
       <ul>
