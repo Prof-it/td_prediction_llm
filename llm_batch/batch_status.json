@@ -2,26 +2,26 @@
   "fastapi_v2_rubric_json.jsonl": {
     "file_id": "file-BhcL1ZaRsp7wdN1LeXpRjr",
     "batch_id": "batch_69f51e9af1c0819097c73db340e3412e",
-    "status": "in_progress"
+    "status": "completed"
   },
   "flask_v2_rubric_json.jsonl": {
     "file_id": "file-U2Pj9NsjV9xU5yq8VJk7BH",
     "batch_id": "batch_69f51ea1e4c881909429e082fb53ddde",
-    "status": "finalizing"
+    "status": "completed"
   },
   "keras_v2_rubric_json.jsonl": {
     "file_id": "file-Y2gKgBBmv8CYr3WpfG2s8M",
     "batch_id": "batch_69f51ecd20b481909bcaf25ac46d1d19",
-    "status": "in_progress"
+    "status": "completed"
   },
   "requests_v2_rubric_json.jsonl": {
     "file_id": "file-F3rCMvimSgicS64y7Y9eJf",
     "batch_id": "batch_69f51ed5da88819090ca6163b941f548",
-    "status": "in_progress"
+    "status": "completed"
   },
   "scrapy_v2_rubric_json.jsonl": {
     "file_id": "file-B74yw8At2LkB54W7f5B7Ld",
     "batch_id": "batch_69f51eec731c8190a5fed75449f19a89",
-    "status": "in_progress"
+    "status": "completed"
   }
 }

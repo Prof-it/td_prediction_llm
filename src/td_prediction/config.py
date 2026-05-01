@@ -85,7 +85,7 @@ META_COLS: list[str] = [
 
 # Label columns — never used as input features.
 LABEL_COLS: list[str] = [
-    "label_satd", "label_llm", "label_human",
+    "label_satd", "label_llm", "label_human", "label_consolidated",
 ]
 
 # Features always dropped — either direct label proxies or temporal leakage.

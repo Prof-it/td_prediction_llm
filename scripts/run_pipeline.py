@@ -43,7 +43,7 @@ def _refresh_labels(split, labels_df: "pd.DataFrame"):
     After re-labeling (e.g. v1→v2) the fresh labels must be merged in so
     training uses up-to-date labels, not stale ones baked into the split CSVs.
     """
-    label_cols = ["commit_uid", "label_llm", "label_satd"]
+    label_cols = ["commit_uid", "label_llm", "label_satd", "label_consolidated"]
     cols = [c for c in label_cols if c in labels_df.columns]
     fresh = labels_df[cols]
 
@@ -76,9 +76,11 @@ def stage_train(args) -> None:
 
     labels_df = pd.read_csv(config.PATHS.data / "features_with_llm_labels.csv")
 
+    label_col = args.label_col
+    print(f"Training on label column: {label_col}")
     split = _refresh_labels(load_split(config.PATHS.splits, "time"), labels_df)
     bundles = trainer.sweep(
-        split=split, label_col="label_llm",
+        split=split, label_col=label_col,
         model_kinds=("rf", "lgbm", "xgb"),
         imbalance_strategies=("none", "class_weight", "smote"),  # smoteenn excluded: too slow for sweep
         feature_sets=(FeatureSet.ALL, FeatureSet.CHANGE_ONLY),
@@ -93,7 +95,7 @@ def stage_train(args) -> None:
         for repo in ["fastapi", "flask", "keras", "requests", "scrapy"]:
             s = _refresh_labels(load_split(config.PATHS.splits, f"lopo_{repo}"), labels_df)
             lopo_bundles.extend(trainer.sweep(
-                split=s, label_col="label_llm",
+                split=s, label_col=label_col,
                 model_kinds=("rf", "lgbm", "xgb"),
                 imbalance_strategies=("none", "class_weight"),
                 feature_sets=(FeatureSet.ALL, FeatureSet.CHANGE_ONLY),
@@ -160,6 +162,9 @@ def main() -> None:
                    help="LLM prompt variant to use as label_llm")
     p.add_argument("--model", default="lgbm", choices=["rf", "lgbm", "xgb"])
     p.add_argument("--lopo", action="store_true", help="also run leave-one-project-out")
+    p.add_argument("--label-col", default="label_consolidated",
+                   choices=["label_consolidated", "label_llm", "label_satd"],
+                   help="Label column to train against. Default: consolidated GT (human consensus where available, LLM otherwise).")
     args = p.parse_args()
     stages = list(STAGES) if args.stage == "all" else [args.stage]
     for s in stages:

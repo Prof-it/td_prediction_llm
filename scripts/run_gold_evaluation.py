@@ -59,6 +59,7 @@ def main():
         import run_pipeline
         run_pipeline.stage_train(types.SimpleNamespace(
             force=False, variant="v2_rubric_json", model="lgbm", lopo=False,
+            label_col="label_consolidated",
         ))
     else:
         print("\n[skip] Step 4: training")

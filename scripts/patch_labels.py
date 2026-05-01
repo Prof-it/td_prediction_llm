@@ -1,7 +1,9 @@
 """
 Patch features_with_llm_labels.csv with:
-  - Fresh v2.3 LLM labels for the 100 gold commits (from human_review_sheet_llm.csv)
-  - label_human column: consolidated GT where humans agreed (from consolidated_gt.csv)
+  - label_llm: fresh v2.3 LLM labels for the 100 gold commits
+  - label_human: consolidated GT for commits where both human raters agreed
+  - label_consolidated: human consensus where available, LLM otherwise
+        ← this is the prof's "konsolidierte Ground Truth", used for training
 
 Reads:
   artifacts/results/human_review_sheet_llm.csv
@@ -67,12 +69,27 @@ def main():
         lambda row: gt_labels.get(row["commit_uid"], row["label_human"]), axis=1
     )
 
+    # Consolidated GT: human consensus where available, LLM otherwise.
+    # This is the column training should use (prof's "konsolidierte Ground Truth").
+    df["label_consolidated"] = df.apply(
+        lambda row: gt_labels.get(row["commit_uid"], row["label_llm"]), axis=1
+    ).astype(int)
+
+    # How many gold commits had label_llm flipped by human consensus
+    overrides = sum(
+        1 for uid, gt in gt_labels.items()
+        if uid in llm_labels and llm_labels[uid] != gt
+    )
+
     df.to_csv(FEATURES_CSV, index=False)
 
     n_after = df["label_llm"].sum()
     print(f"Patched {len(llm_labels)} gold commits with v2.3 LLM labels")
-    print(f"label_llm positive rate: {n_before/len(df):.3f} → {n_after/len(df):.3f}")
-    print(f"label_human (GT) set for {df['label_human'].notna().sum()} commits")
+    print(f"label_llm        positive rate: {n_before/len(df):.4f} → {n_after/len(df):.4f}")
+    print(f"label_human      (GT) set for {df['label_human'].notna().sum()} commits")
+    print(f"label_consolidated positive rate: {df['label_consolidated'].mean():.4f}")
+    print(f"  → {len(gt_labels)} labels from human consensus, {len(df)-len(gt_labels)} from LLM")
+    print(f"  → human consensus overrode LLM on {overrides}/{len(gt_labels)} gold commits")
     print(f"Written → {FEATURES_CSV}")
 
 
