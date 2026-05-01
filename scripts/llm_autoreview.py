@@ -14,7 +14,7 @@ from openai.types.chat import ChatCompletionMessageParam
 from td_prediction.config import LLM_MODEL, LLM_MODEL_DATE, LLM_TEMPERATURE
 from td_prediction.labeling.prompts import SYSTEM_PROMPT, RUBRIC
 
-load_dotenv()
+load_dotenv(override=True)
 
 # --- SETTINGS ---
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
