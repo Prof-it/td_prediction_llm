@@ -12,70 +12,9 @@ import json
 import openai
 from openai.types.chat import ChatCompletionMessageParam
 from td_prediction.config import LLM_MODEL, LLM_MODEL_DATE, LLM_TEMPERATURE
+from td_prediction.labeling.prompts import SYSTEM_PROMPT, RUBRIC
 
 load_dotenv()
-# --- CONFIG ---
-SYSTEM_PROMPT = (
-    "You are a senior software engineer performing strict diff-based code review. "
-    "Base your judgment ONLY on visible Python diff evidence. "
-    "Do not infer or speculate. When unsure, answer 'no'. "
-    "Return valid JSON only."
-)
-
-RUBRIC = """Technical debt (TD) is any design or implementation shortcut in this\n
-specific commit that trades short-term delivery for higher future maintenance cost\n
-(Cunningham 1992). The assessment is STRICTLY limited to the provided Python (.py)\n
-diff only.\n\n
-
-EPISTEMIC CONSTRAINTS:\n
-- Assume ONLY the shown .py diff is available.\n
-- Do NOT infer repository structure, unseen files, tests, or architecture.\n
-- Do NOT speculate about missing tests or dependencies unless explicitly shown.\n
-- If evidence is not directly visible in the diff, treat it as UNKNOWN (not TD).\n\n
-
-Label a commit as TD-introducing (\"yes\") ONLY if at least one of the following\n
-is clearly and directly observable in the diff:\n\n1. Local complexity increase:\n   
-- visibly longer methods/functions OR\n   
-- deeply nested conditionals OR\n   
-- multiple responsibilities added into one function\n\n
-
-2. Explicit duplication:\n   
-- repeated or copy-pasted code blocks within the diff\n   
-- near-identical logic with minor variations that should be abstracted\n\n
-
-3. Local coupling within diff:\n   
-- same concern spread across multiple modified Python files OR\n   
-- new direct dependency between modules visible in the diff\n   
-(Do NOT assume global architecture or cyclic dependencies)\n\n
-
-4. Concrete code quality issues:\n   
-- hard-coded values / magic numbers without explanation\n   
-- commented-out production code left in place\n   
-- clearly unused variables or dead code within the diff\n\n
-
-5. Removed or weakened safeguards (ONLY if explicitly visible):\n   
-- deletion of tests, assertions, validation, or error handling\n   
-- silenced exceptions (e.g., bare except, pass)\n   
-- explicit \"temporary workaround\" in code/comments\n\n
-
-6. Self-admitted technical debt:\n   
-- comments or messages explicitly stating the solution is temporary,\n     
-incomplete, or suboptimal\n\n
-
-Do NOT label as TD:\n
-- Changes that reduce complexity or remove duplication\n
-- Mechanical or formatting-only changes\n
-- Self-contained feature additions with no visible shortcuts\n
-- Absence of tests or safeguards UNLESS their removal is explicitly shown\n
-- Any claim that relies on unseen files or assumed architecture\n\n
-
-DECISION RULE:\n
-- Default to \"no\" unless there is clear, direct evidence of TD in the diff.\n
-- When uncertain or evidence is weak → label \"no\".\n\n
-
-Respond ONLY with:\n
-{"label": "yes" | "no", "confidence": 0.0-1.0, "rationale": "<= 25 words"}\n
-"""
 
 # --- SETTINGS ---
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
