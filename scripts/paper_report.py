@@ -154,6 +154,38 @@ def _lopo_metrics() -> dict:
     }
 
 
+def _baseline_metrics() -> dict | None:
+    p = Path("artifacts/results/baseline_metrics.csv")
+    if not p.exists():
+        return None
+    df = pd.read_csv(p)
+    test = df[df["phase"] == "test"].iloc[0]
+    val  = df[df["phase"] == "val"].iloc[0]
+    return {
+        "test": {k: float(test[k]) for k in ["f1_debt","p_debt","r_debt","mcc"]},
+        "val":  {k: float(val[k])  for k in ["f1_debt","p_debt","r_debt","mcc"]},
+        "test_cm": {k: int(test[k]) for k in ["tp","fp","fn","tn"]},
+    }
+
+
+def _multiseed() -> dict | None:
+    p = Path("artifacts/results/multiseed_metrics.csv")
+    if not p.exists():
+        return None
+    df = pd.read_csv(p)
+    test = df[df["phase"] == "test"]
+    return {
+        "n_seeds": int(test["seed"].nunique()),
+        "test_mean": {c: float(test[c].mean()) for c in ["f1_debt","roc_auc","pr_auc_debt","p_debt","r_debt","mcc"]},
+        "test_std":  {c: float(test[c].std())  for c in ["f1_debt","roc_auc","pr_auc_debt","p_debt","r_debt","mcc"]},
+    }
+
+
+def _mcnemar() -> str | None:
+    p = Path("artifacts/results/mcnemar_test.txt")
+    return p.read_text() if p.exists() else None
+
+
 def _xai_top() -> list:
     xai = pd.read_csv("artifacts/results/xai_topk_lgbm.csv")
     return xai.head(10).to_dict("records")
@@ -186,6 +218,9 @@ def main():
         "confidence":  _confidence_stats(),
         "time_split":  _time_metrics(),
         "lopo":        _lopo_metrics(),
+        "satd_baseline": _baseline_metrics(),
+        "multiseed":     _multiseed(),
+        "mcnemar":       _mcnemar(),
         "xai_top10":   _xai_top(),
     }
 
@@ -259,6 +294,32 @@ def main():
     md.append(f"| val  | {bv['f1_debt']:.3f} | {bv['roc_auc']:.3f} | {bv['pr_auc_debt']:.3f} | {bv['p_debt']:.3f} | {bv['r_debt']:.3f} | {bv['mcc']:.3f} | {bv['balanced_acc']:.3f} |")
     md.append(f"| **test** | **{b['f1_debt']:.3f}** | **{b['roc_auc']:.3f}** | **{b['pr_auc_debt']:.3f}** | **{b['p_debt']:.3f}** | **{b['r_debt']:.3f}** | **{b['mcc']:.3f}** | **{b['balanced_acc']:.3f}** |")
     md.append("")
+
+    bl = report.get("satd_baseline")
+    ms = report.get("multiseed")
+    if bl and ms:
+        md.append("## ML model vs SATD-regex baseline (TEST)\n")
+        md.append("| Approach | F1 | P | R | MCC |")
+        md.append("|---|---:|---:|---:|---:|")
+        md.append(f"| **ML (RF/all/none, mean of {ms['n_seeds']} seeds)** "
+                  f"| **{ms['test_mean']['f1_debt']:.3f} ± {ms['test_std']['f1_debt']:.3f}** "
+                  f"| {ms['test_mean']['p_debt']:.3f} ± {ms['test_std']['p_debt']:.3f} "
+                  f"| {ms['test_mean']['r_debt']:.3f} ± {ms['test_std']['r_debt']:.3f} "
+                  f"| {ms['test_mean']['mcc']:.3f} ± {ms['test_std']['mcc']:.3f} |")
+        md.append(f"| SATD regex baseline | {bl['test']['f1_debt']:.3f} | {bl['test']['p_debt']:.3f} "
+                  f"| {bl['test']['r_debt']:.3f} | {bl['test']['mcc']:.3f} |")
+        md.append("")
+        md.append(f"ML is ranking-stable (AUC std = {ms['test_std']['roc_auc']:.4f}) and produces "
+                  f"+{(ms['test_mean']['f1_debt']-bl['test']['f1_debt'])*100:.1f}pp F1 over SATD-regex. "
+                  "The trade-off: SATD has higher precision (it only fires on commits with TD keywords); "
+                  "ML has substantially higher recall (catches TD without keywords).\n")
+
+    mcn = report.get("mcnemar")
+    if mcn:
+        md.append("**McNemar's test** (significance of disagreement, two-sided):\n")
+        md.append("```")
+        md.append(mcn.strip())
+        md.append("```\n")
 
     md.append("## LOPO (leave-one-project-out) — cross-project generalization\n")
     md.append(f"Mean across the 5 held-out repos (RF / all / none): "

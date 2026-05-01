@@ -3,7 +3,7 @@ Patch features_with_llm_labels.csv with:
   - label_llm: fresh v2.3 LLM labels for the 100 gold commits
   - label_human: consolidated GT for commits where both human raters agreed
   - label_consolidated: human consensus where available, LLM otherwise
-        ← this is the prof's "konsolidierte Ground Truth", used for training
+        ← this is the consolidated ground truth used for training
 
 Reads:
   artifacts/results/human_review_sheet_llm.csv
@@ -70,7 +70,7 @@ def main():
     )
 
     # Consolidated GT: human consensus where available, LLM otherwise.
-    # This is the column training should use (prof's "konsolidierte Ground Truth").
+    # This is the column training should use.
     df["label_consolidated"] = df.apply(
         lambda row: gt_labels.get(row["commit_uid"], row["label_llm"]), axis=1
     ).astype(int)

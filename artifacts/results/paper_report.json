@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-05-02T01:47:42+02:00",
+  "generated_at": "2026-05-02T01:58:30+02:00",
   "config": {
     "llm_model": "gpt-5.4-mini-2026-03-17",
     "llm_model_date": "2026-03-17",
@@ -390,6 +390,46 @@
     "rf_all_none_mean_auc": 0.8449460859928701,
     "rf_all_none_mean_mcc": 0.2887626693123736
   },
+  "satd_baseline": {
+    "test": {
+      "f1_debt": 0.3167155425219941,
+      "p_debt": 0.4695652173913043,
+      "r_debt": 0.2389380530973451,
+      "mcc": 0.3092286676349096
+    },
+    "val": {
+      "f1_debt": 0.4238921001926782,
+      "p_debt": 0.5882352941176471,
+      "r_debt": 0.3313253012048193,
+      "mcc": 0.4074244520112768
+    },
+    "test_cm": {
+      "tp": 54,
+      "fp": 61,
+      "fn": 172,
+      "tn": 3925
+    }
+  },
+  "multiseed": {
+    "n_seeds": 5,
+    "test_mean": {
+      "f1_debt": 0.3953214324028771,
+      "roc_auc": 0.8702136681926564,
+      "pr_auc_debt": 0.3429928421135819,
+      "p_debt": 0.2919958714031146,
+      "r_debt": 0.6185840707964602,
+      "mcc": 0.37777813773482627
+    },
+    "test_std": {
+      "f1_debt": 0.017394773027614233,
+      "roc_auc": 0.0012600072469216603,
+      "pr_auc_debt": 0.004409812253045375,
+      "p_debt": 0.0257863454020626,
+      "r_debt": 0.035176295423631494,
+      "mcc": 0.013048625825321162
+    }
+  },
+  "mcnemar": "McNemar's test: rf_all_none vs satd_regex\n  n_test                                    = 4212\n  rf_all_none               correct, other wrong: 129\n  satd_regex                correct, other wrong: 254\n  chi\u00b2                                      = 40.1462\n  p-value                                   = 2.356e-10\n  significant at \u03b1=0.05?                    = YES\n",
   "xai_top10": [
     {
       "shap_feature": "lines_added",

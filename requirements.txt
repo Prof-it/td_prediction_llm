@@ -83,4 +83,4 @@ wcwidth==0.2.13
 xgboost==3.0.2
 imbalanced-learn>=0.14.0
 pytest>=8.0.0
-PyYAML>=6.0.1
+PyYAML>=6.0.1statsmodels

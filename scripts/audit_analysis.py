@@ -4,7 +4,7 @@ Audit-quality analysis of the 100-commit human-reviewed gold set:
   1. Stratification check: is the gold set representative of the full corpus
      by (a) repo, (b) commit size, (c) label_satd / TD-likelihood?
   2. Confidence slice: identify high-uncertainty LLM labels for targeted
-     additional human review (the prof's "high-uncertainty slices" suggestion).
+     additional human review (high-uncertainty slices for targeted retraining).
 
 Reads:
   data/features_with_llm_labels.csv
@@ -160,7 +160,7 @@ def confidence_slice():
     out.to_csv(OUT_LOWC, index=False)
     print(f"\n  Saved → {OUT_LOWC}")
     print(f"\n  These are good candidates for additional human review")
-    print(f"  (the prof's 'high-uncertainty slices' suggestion).")
+    print(f"  (high-uncertainty slices for targeted retraining).")
 
 
 def main():

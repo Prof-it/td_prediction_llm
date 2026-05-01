@@ -1,6 +1,6 @@
 # TD Prediction — Paper Report
 
-_Auto-generated 2026-05-02T01:47:42+02:00. Re-run `python scripts/paper_report.py` after re-training._
+_Auto-generated 2026-05-02T01:58:30+02:00. Re-run `python scripts/paper_report.py` after re-training._
 
 ## Setup
 
@@ -53,6 +53,27 @@ _Auto-generated 2026-05-02T01:47:42+02:00. Re-run `python scripts/paper_report.p
 |---|---:|---:|---:|---:|---:|---:|---:|
 | val  | 0.501 | 0.896 | 0.416 | 0.407 | 0.651 | 0.462 | 0.785 |
 | **test** | **0.409** | **0.866** | **0.343** | **0.309** | **0.606** | **0.388** | **0.765** |
+
+## ML model vs SATD-regex baseline (TEST)
+
+| Approach | F1 | P | R | MCC |
+|---|---:|---:|---:|---:|
+| **ML (RF/all/none, mean of 5 seeds)** | **0.395 ± 0.017** | 0.292 ± 0.026 | 0.619 ± 0.035 | 0.378 ± 0.013 |
+| SATD regex baseline | 0.317 | 0.470 | 0.239 | 0.309 |
+
+ML is ranking-stable (AUC std = 0.0013) and produces +7.9pp F1 over SATD-regex. The trade-off: SATD has higher precision (it only fires on commits with TD keywords); ML has substantially higher recall (catches TD without keywords).
+
+**McNemar's test** (significance of disagreement, two-sided):
+
+```
+McNemar's test: rf_all_none vs satd_regex
+  n_test                                    = 4212
+  rf_all_none               correct, other wrong: 129
+  satd_regex                correct, other wrong: 254
+  chi²                                      = 40.1462
+  p-value                                   = 2.356e-10
+  significant at α=0.05?                    = YES
+```
 
 ## LOPO (leave-one-project-out) — cross-project generalization
 

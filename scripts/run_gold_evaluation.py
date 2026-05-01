@@ -1,5 +1,5 @@
 """
-Orchestrates the full gold-set evaluation pipeline (prof's workflow):
+Orchestrates the full gold-set evaluation pipeline:
 
   1. llm_autoreview.py   — re-label 100 gold commits with LLM v2.3
   2. kappa_analysis.py   — Cohen's κ + consolidated_gt.csv + disagreement_slice.csv
