@@ -97,7 +97,7 @@ def call_llm(metrics_row, diff_text):
         model=OPENAI_MODEL,
         messages=messages,
         temperature=LLM_TEMPERATURE,
-        max_tokens=128,
+        max_completion_tokens=128,
     )
     return response.choices[0].message.content
 

@@ -102,7 +102,7 @@ def build_batch_file(plan: BatchPlan, out_path: Path, *, strip_satd_comments: bo
                     "body": {
                         "model": config.LLM_MODEL,
                         "messages": messages,
-                        "max_tokens": max_tok,
+                        "max_completion_tokens": max_tok,
                         "temperature": plan.temperature,
                     },
                 }
