@@ -13,6 +13,7 @@ import openai
 from openai.types.chat import ChatCompletionMessageParam
 from td_prediction.config import LLM_MODEL, LLM_MODEL_DATE, LLM_TEMPERATURE
 from td_prediction.labeling.prompts import SYSTEM_PROMPT, RUBRIC
+from td_prediction.labeling.satd import strip_comments
 
 load_dotenv()
 
@@ -106,7 +107,7 @@ def main():
                     print(f"[{i}/{len(rows)}] SKIP {commit_hash}: no commit_url")
                     continue
             with diff_path.open() as df:
-                diff_text = filter_py_diff(df.read())
+                diff_text = strip_comments(filter_py_diff(df.read()))
             metrics_summary = f"LoC+{row['lines_added']}/-{row['lines_deleted']} | files={row['files_changed']} | hunks={row['hunks']}"
             try:
                 llm_response = call_llm(metrics_summary, diff_text)
