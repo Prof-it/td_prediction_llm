@@ -11,6 +11,9 @@ import argparse
 import sys
 from pathlib import Path
 
+from dotenv import load_dotenv
+load_dotenv()
+
 
 def _ensure_src_on_path() -> None:
     root = Path(__file__).resolve().parent.parent
