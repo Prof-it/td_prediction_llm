@@ -1,0 +1,445 @@
+{
+  "generated_at": "2026-05-02T01:47:42+02:00",
+  "config": {
+    "llm_model": "gpt-5.4-mini-2026-03-17",
+    "llm_model_date": "2026-03-17",
+    "llm_temperature": 0.0,
+    "prompt_version": "v2.3"
+  },
+  "dataset": {
+    "n_total": 21038,
+    "n_repos": 5,
+    "label_satd_pos": 648,
+    "label_satd_rate": 0.030801406977849607,
+    "label_llm_pos": 1311,
+    "label_llm_rate": 0.062315809487593875,
+    "label_consolidated_pos": 1304,
+    "label_consolidated_rate": 0.06198307823937637,
+    "label_human_n": 69,
+    "label_human_pos": 15,
+    "llm_satd_kappa": 0.34353392205056654,
+    "per_repo": [
+      {
+        "repo_id": "fastapi",
+        "n_commits": 934,
+        "n_satd_pos": 22,
+        "n_llm_pos": 52,
+        "n_consolidated_pos": 51
+      },
+      {
+        "repo_id": "flask",
+        "n_commits": 1967,
+        "n_satd_pos": 31,
+        "n_llm_pos": 35,
+        "n_consolidated_pos": 34
+      },
+      {
+        "repo_id": "keras",
+        "n_commits": 9256,
+        "n_satd_pos": 380,
+        "n_llm_pos": 756,
+        "n_consolidated_pos": 751
+      },
+      {
+        "repo_id": "requests",
+        "n_commits": 2749,
+        "n_satd_pos": 75,
+        "n_llm_pos": 166,
+        "n_consolidated_pos": 167
+      },
+      {
+        "repo_id": "scrapy",
+        "n_commits": 6132,
+        "n_satd_pos": 140,
+        "n_llm_pos": 302,
+        "n_consolidated_pos": 301
+      }
+    ]
+  },
+  "kappa": {
+    "human_a_vs_human_b": {
+      "kappa": 0.2757009345794392,
+      "n": 100
+    },
+    "llm_vs_human_a": {
+      "kappa": 0.3992606284658041,
+      "n": 100
+    },
+    "llm_vs_human_b": {
+      "kappa": 0.4104803493449781,
+      "n": 100
+    },
+    "llm_vs_consolidated": {
+      "kappa": 0.5990491283676703,
+      "n": 69
+    },
+    "consolidated_gt_size": 69,
+    "gold_set_size": 100
+  },
+  "confidence": {
+    "n": 21034,
+    "mean": 0.9571008842825901,
+    "std": 0.03788029998019128,
+    "min": 0.74,
+    "low_confidence_count": 80,
+    "low_confidence_threshold": 0.85
+  },
+  "time_split": {
+    "best": {
+      "model": "rf",
+      "feature_set": "all",
+      "imbalance": "none",
+      "f1_debt": 0.408955223880597,
+      "roc_auc": 0.8663447064726543,
+      "pr_auc_debt": 0.3425730413989304,
+      "p_debt": 0.3085585585585585,
+      "r_debt": 0.6061946902654868,
+      "mcc": 0.3883071192936327,
+      "balanced_acc": 0.7645875608878864
+    },
+    "best_val": {
+      "model": "rf",
+      "feature_set": "all",
+      "imbalance": "none",
+      "f1_debt": 0.5005793742757821,
+      "roc_auc": 0.8963468125017499,
+      "pr_auc_debt": 0.4158567751679717,
+      "p_debt": 0.4067796610169492,
+      "r_debt": 0.6506024096385542,
+      "mcc": 0.4621621070622389,
+      "balanced_acc": 0.7846350545481695
+    },
+    "all_test": [
+      {
+        "model": "rf",
+        "feature_set": "all",
+        "imbalance": "none",
+        "f1_debt": 0.408955223880597,
+        "roc_auc": 0.8663447064726543,
+        "pr_auc_debt": 0.3425730413989304,
+        "p_debt": 0.3085585585585585,
+        "r_debt": 0.6061946902654868,
+        "mcc": 0.3883071192936327,
+        "balanced_acc": 0.7645875608878864
+      },
+      {
+        "model": "lgbm",
+        "feature_set": "all",
+        "imbalance": "none",
+        "f1_debt": 0.375796178343949,
+        "roc_auc": 0.8605795061476228,
+        "pr_auc_debt": 0.3187894081136861,
+        "p_debt": 0.2935323383084577,
+        "r_debt": 0.5221238938053098,
+        "mcc": 0.3457825289824545,
+        "balanced_acc": 0.7254372605002464
+      },
+      {
+        "model": "xgb",
+        "feature_set": "all",
+        "imbalance": "none",
+        "f1_debt": 0.3840245775729646,
+        "roc_auc": 0.8510117268848048,
+        "pr_auc_debt": 0.3014006001512246,
+        "p_debt": 0.2941176470588235,
+        "r_debt": 0.5530973451327433,
+        "mcc": 0.3574849211462455,
+        "balanced_acc": 0.7389169615779121
+      },
+      {
+        "model": "rf",
+        "feature_set": "all",
+        "imbalance": "class_weight",
+        "f1_debt": 0.4067278287461773,
+        "roc_auc": 0.8687580203277845,
+        "pr_auc_debt": 0.3247681232794031,
+        "p_debt": 0.3107476635514019,
+        "r_debt": 0.588495575221239,
+        "mcc": 0.3837067495422396,
+        "balanced_acc": 0.7572432718053008
+      },
+      {
+        "model": "lgbm",
+        "feature_set": "all",
+        "imbalance": "class_weight",
+        "f1_debt": 0.3895348837209302,
+        "roc_auc": 0.8525969210821948,
+        "pr_auc_debt": 0.3039521915583565,
+        "p_debt": 0.29004329004329,
+        "r_debt": 0.5929203539823009,
+        "mcc": 0.3682091417509944,
+        "balanced_acc": 0.7553161729771013
+      },
+      {
+        "model": "xgb",
+        "feature_set": "all",
+        "imbalance": "class_weight",
+        "f1_debt": 0.3826086956521739,
+        "roc_auc": 0.8522738878108778,
+        "pr_auc_debt": 0.3014134648040751,
+        "p_debt": 0.2844827586206896,
+        "r_debt": 0.584070796460177,
+        "mcc": 0.3604212872633336,
+        "balanced_acc": 0.7503896380695265
+      },
+      {
+        "model": "rf",
+        "feature_set": "all",
+        "imbalance": "smote",
+        "f1_debt": 0.3500810372771475,
+        "roc_auc": 0.8563517665812644,
+        "pr_auc_debt": 0.2647106988733419,
+        "p_debt": 0.2762148337595907,
+        "r_debt": 0.4778761061946903,
+        "mcc": 0.3159437456331477,
+        "balanced_acc": 0.7034388057315649
+      },
+      {
+        "model": "lgbm",
+        "feature_set": "all",
+        "imbalance": "smote",
+        "f1_debt": 0.3184079601990049,
+        "roc_auc": 0.8110144354799319,
+        "pr_auc_debt": 0.256001412793795,
+        "p_debt": 0.2546419098143236,
+        "r_debt": 0.4247787610619469,
+        "mcc": 0.2796524463194199,
+        "balanced_acc": 0.6771410112384496
+      },
+      {
+        "model": "xgb",
+        "feature_set": "all",
+        "imbalance": "smote",
+        "f1_debt": 0.3079470198675497,
+        "roc_auc": 0.8128227557513243,
+        "pr_auc_debt": 0.2286857270033497,
+        "p_debt": 0.246031746031746,
+        "r_debt": 0.411504424778761,
+        "mcc": 0.2680619429254688,
+        "balanced_acc": 0.6700020869503439
+      },
+      {
+        "model": "rf",
+        "feature_set": "change_only",
+        "imbalance": "none",
+        "f1_debt": 0.375,
+        "roc_auc": 0.8651979938634778,
+        "pr_auc_debt": 0.3278775457261949,
+        "p_debt": 0.2705882352941176,
+        "r_debt": 0.6106194690265486,
+        "mcc": 0.357318931643395,
+        "balanced_acc": 0.7586464128875844
+      },
+      {
+        "model": "lgbm",
+        "feature_set": "change_only",
+        "imbalance": "none",
+        "f1_debt": 0.3388804841149773,
+        "roc_auc": 0.8367916024670418,
+        "pr_auc_debt": 0.2711300412217049,
+        "p_debt": 0.2574712643678161,
+        "r_debt": 0.495575221238938,
+        "mcc": 0.3069536973267212,
+        "balanced_acc": 0.7072708017885608
+      },
+      {
+        "model": "xgb",
+        "feature_set": "change_only",
+        "imbalance": "none",
+        "f1_debt": 0.3157894736842105,
+        "roc_auc": 0.812241628886945,
+        "pr_auc_debt": 0.2672315337061685,
+        "p_debt": 0.2513089005235602,
+        "r_debt": 0.4247787610619469,
+        "mcc": 0.2770132215942396,
+        "balanced_acc": 0.6765138160553086
+      },
+      {
+        "model": "rf",
+        "feature_set": "change_only",
+        "imbalance": "class_weight",
+        "f1_debt": 0.376978417266187,
+        "roc_auc": 0.8624871785763445,
+        "pr_auc_debt": 0.3166887403795785,
+        "p_debt": 0.279317697228145,
+        "r_debt": 0.5796460176991151,
+        "mcc": 0.3544862790042105,
+        "balanced_acc": 0.7474246144692264
+      },
+      {
+        "model": "lgbm",
+        "feature_set": "change_only",
+        "imbalance": "class_weight",
+        "f1_debt": 0.3328100470957614,
+        "roc_auc": 0.8117981519388656,
+        "pr_auc_debt": 0.2577562387323255,
+        "p_debt": 0.2579075425790754,
+        "r_debt": 0.4690265486725664,
+        "mcc": 0.2980590744946949,
+        "balanced_acc": 0.6962543681646826
+      },
+      {
+        "model": "xgb",
+        "feature_set": "change_only",
+        "imbalance": "class_weight",
+        "f1_debt": 0.2974079126875852,
+        "roc_auc": 0.7946352055202057,
+        "pr_auc_debt": 0.2522327252864352,
+        "p_debt": 0.2149901380670611,
+        "r_debt": 0.4823008849557522,
+        "mcc": 0.264850653808066,
+        "balanced_acc": 0.691225705899853
+      },
+      {
+        "model": "rf",
+        "feature_set": "change_only",
+        "imbalance": "smote",
+        "f1_debt": 0.3055934515688949,
+        "roc_auc": 0.8417891824927067,
+        "pr_auc_debt": 0.2394177956951016,
+        "p_debt": 0.2209072978303747,
+        "r_debt": 0.495575221238938,
+        "mcc": 0.2745644427863106,
+        "balanced_acc": 0.6982391911513306
+      },
+      {
+        "model": "lgbm",
+        "feature_set": "change_only",
+        "imbalance": "smote",
+        "f1_debt": 0.3049001814882032,
+        "roc_auc": 0.7946218845605637,
+        "pr_auc_debt": 0.2439852959946875,
+        "p_debt": 0.2584615384615384,
+        "r_debt": 0.3716814159292035,
+        "mcc": 0.2628095457688688,
+        "balanced_acc": 0.6556099001372059
+      },
+      {
+        "model": "xgb",
+        "feature_set": "change_only",
+        "imbalance": "smote",
+        "f1_debt": 0.3082191780821918,
+        "roc_auc": 0.7810139692463446,
+        "pr_auc_debt": 0.2373026765340475,
+        "p_debt": 0.2513966480446927,
+        "r_debt": 0.3982300884955752,
+        "mcc": 0.2674524761933956,
+        "balanced_acc": 0.6654973824314304
+      }
+    ]
+  },
+  "lopo": {
+    "per_repo_best": [
+      {
+        "held_out_repo": "fastapi",
+        "model": "rf",
+        "feature_set": "all",
+        "imbalance": "class_weight",
+        "f1": 0.3648648648648648,
+        "auc": 0.8629560544489597,
+        "p": 0.2783505154639175,
+        "r": 0.5294117647058824,
+        "mcc": 0.3352440955887854
+      },
+      {
+        "held_out_repo": "flask",
+        "model": "rf",
+        "feature_set": "all",
+        "imbalance": "class_weight",
+        "f1": 0.224,
+        "auc": 0.8233924713185843,
+        "p": 0.1538461538461538,
+        "r": 0.4117647058823529,
+        "mcc": 0.2307702265070275
+      },
+      {
+        "held_out_repo": "keras",
+        "model": "rf",
+        "feature_set": "all",
+        "imbalance": "none",
+        "f1": 0.4533333333333333,
+        "auc": 0.8605536337597294,
+        "p": 0.3686405337781485,
+        "r": 0.5885486018641811,
+        "mcc": 0.4061935097044782
+      },
+      {
+        "held_out_repo": "requests",
+        "model": "lgbm",
+        "feature_set": "all",
+        "imbalance": "class_weight",
+        "f1": 0.3552123552123552,
+        "auc": 0.861812780326257,
+        "p": 0.5,
+        "r": 0.2754491017964072,
+        "mcc": 0.3421755085218642
+      },
+      {
+        "held_out_repo": "scrapy",
+        "model": "rf",
+        "feature_set": "all",
+        "imbalance": "class_weight",
+        "f1": 0.3351158645276292,
+        "auc": 0.8364600705018601,
+        "p": 0.3615384615384615,
+        "r": 0.3122923588039867,
+        "mcc": 0.3043153961585039
+      }
+    ],
+    "rf_all_none_mean_f1": 0.29289358520058245,
+    "rf_all_none_mean_auc": 0.8449460859928701,
+    "rf_all_none_mean_mcc": 0.2887626693123736
+  },
+  "xai_top10": [
+    {
+      "shap_feature": "lines_added",
+      "lime_feature": "lines_added",
+      "perm_feature": "lines_added"
+    },
+    {
+      "shap_feature": "n_authors_till_now",
+      "lime_feature": "churn_delta",
+      "perm_feature": "cc_delta_max"
+    },
+    {
+      "shap_feature": "churn_cum",
+      "lime_feature": "cc_delta_max",
+      "perm_feature": "cc_delta_sum"
+    },
+    {
+      "shap_feature": "contributors_count",
+      "lime_feature": "n_authors_till_now",
+      "perm_feature": "contributors_count"
+    },
+    {
+      "shap_feature": "complexity_current_sum",
+      "lime_feature": "churn_cum",
+      "perm_feature": "churn_delta"
+    },
+    {
+      "shap_feature": "cc_delta_max",
+      "lime_feature": "cc_delta_sum",
+      "perm_feature": "n_commits_file_past90d"
+    },
+    {
+      "shap_feature": "contributors_cum",
+      "lime_feature": "hunks",
+      "perm_feature": "hunks"
+    },
+    {
+      "shap_feature": "n_commits_file_past90d",
+      "lime_feature": "dmm_unit_interfacing",
+      "perm_feature": "contributors_cum"
+    },
+    {
+      "shap_feature": "cc_delta_sum",
+      "lime_feature": "n_methods_changed",
+      "perm_feature": "dmm_unit_interfacing"
+    },
+    {
+      "shap_feature": "churn_delta",
+      "lime_feature": "n_commits_file_past90d",
+      "perm_feature": "complexity_current_sum"
+    }
+  ]
+}
