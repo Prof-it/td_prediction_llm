@@ -1,6 +1,6 @@
 """
 Patch features_with_llm_labels.csv with:
-  - Fresh v2.2 LLM labels for the 100 gold commits (from human_review_sheet_llm.csv)
+  - Fresh v2.3 LLM labels for the 100 gold commits (from human_review_sheet_llm.csv)
   - label_human column: consolidated GT where humans agreed (from consolidated_gt.csv)
 
 Reads:
@@ -70,7 +70,7 @@ def main():
     df.to_csv(FEATURES_CSV, index=False)
 
     n_after = df["label_llm"].sum()
-    print(f"Patched {len(llm_labels)} gold commits with v2.2 LLM labels")
+    print(f"Patched {len(llm_labels)} gold commits with v2.3 LLM labels")
     print(f"label_llm positive rate: {n_before/len(df):.3f} → {n_after/len(df):.3f}")
     print(f"label_human (GT) set for {df['label_human'].notna().sum()} commits")
     print(f"Written → {FEATURES_CSV}")

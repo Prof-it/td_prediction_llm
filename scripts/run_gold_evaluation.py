@@ -1,7 +1,7 @@
 """
 Orchestrates the full gold-set evaluation pipeline (prof's workflow):
 
-  1. llm_autoreview.py   — re-label 100 gold commits with LLM v2.2
+  1. llm_autoreview.py   — re-label 100 gold commits with LLM v2.3
   2. kappa_analysis.py   — Cohen's κ + consolidated_gt.csv + disagreement_slice.csv
   3. patch_labels.py     — update features_with_llm_labels.csv with fresh labels
   4. run_pipeline.py     — re-train ML models on updated labels
@@ -71,10 +71,10 @@ def main():
     metrics = Path("artifacts/results/metrics_time.csv")
     if metrics.exists():
         import pandas as pd
-        best = pd.read_csv(metrics).sort_values("f1", ascending=False).iloc[0]
+        best = pd.read_csv(metrics).sort_values("f1_debt", ascending=False).iloc[0]
         print(f"\n  Best model: {best['model']} / {best['feature_set']} / {best['imbalance']}")
-        print(f"  F1={best['f1']:.4f}  AUC={best.get('roc_auc', float('nan')):.4f}  "
-              f"P={best['precision']:.4f}  R={best['recall']:.4f}")
+        print(f"  F1={best['f1_debt']:.4f}  AUC={best['roc_auc']:.4f}  "
+              f"P={best['p_debt']:.4f}  R={best['r_debt']:.4f}  MCC={best['mcc']:.4f}")
 
 
 if __name__ == "__main__":
