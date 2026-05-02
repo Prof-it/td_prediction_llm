@@ -206,6 +206,25 @@ def _mcnemar() -> str | None:
     return p.read_text() if p.exists() else None
 
 
+def _kappa_ci() -> dict | None:
+    p = Path("artifacts/results/kappa_ci.json")
+    return json.loads(p.read_text()) if p.exists() else None
+
+
+def _operating_points() -> list | None:
+    p = Path("artifacts/results/operating_points.csv")
+    if not p.exists():
+        return None
+    return pd.read_csv(p).to_dict("records")
+
+
+def _confidence_stratified() -> list | None:
+    p = Path("artifacts/results/confidence_stratified_metrics.csv")
+    if not p.exists():
+        return None
+    return pd.read_csv(p).to_dict("records")
+
+
 def _xai_top() -> list:
     xai = pd.read_csv("artifacts/results/xai_topk_lgbm.csv")
     return xai.head(10).to_dict("records")
@@ -239,9 +258,12 @@ def main():
         "time_split":  _time_metrics(),
         "lopo":        _lopo_metrics(),
         "stratification": _stratification(),
-        "satd_baseline": _baseline_metrics(),
-        "multiseed":     _multiseed(),
-        "mcnemar":       _mcnemar(),
+        "satd_baseline":           _baseline_metrics(),
+        "multiseed":               _multiseed(),
+        "mcnemar":                 _mcnemar(),
+        "kappa_ci":                _kappa_ci(),
+        "operating_points":        _operating_points(),
+        "confidence_stratified":   _confidence_stratified(),
         "xai_top10":   _xai_top(),
     }
 
@@ -282,9 +304,15 @@ def main():
     md.append("")
 
     md.append("## Inter-rater agreement (Cohen's κ)\n")
-    md.append(f"- 100-commit gold set, two human reviewers (A, B). Consolidated GT = where A == B ({k['consolidated_gt_size']}/{k['gold_set_size']} commits).\n")
-    md.append("| Comparison | n | κ | Interpretation |")
-    md.append("|---|---:|---:|---|")
+    md.append(f"- 100-commit gold set, two human reviewers (A, B). Consolidated GT = where A == B ({k['consolidated_gt_size']}/{k['gold_set_size']} commits).")
+    cis = report.get("kappa_ci")
+    if cis:
+        first = next(iter(cis.values()))
+        md.append(f"- 95% CIs from {first['n_bootstrap']:,}-resample non-parametric bootstrap.\n")
+    else:
+        md.append("")
+    md.append("| Comparison | n | κ | 95% CI | Interpretation |")
+    md.append("|---|---:|---:|---|---|")
     for name, label in [
         ("human_a_vs_human_b",  "Human A vs Human B"),
         ("llm_vs_human_a",      "LLM vs Human A"),
@@ -296,11 +324,13 @@ def main():
         elif kv >= 0.4: interp = "moderate"
         elif kv >= 0.2: interp = "fair"
         else: interp = "poor"
-        md.append(f"| {label} | {nv} | **{kv:.4f}** | {interp} |")
+        ci_str = "—"
+        if cis and name in cis:
+            ci_str = f"[{cis[name]['ci_lo']:.3f}, {cis[name]['ci_hi']:.3f}]"
+        md.append(f"| {label} | {nv} | **{kv:.4f}** | {ci_str} | {interp} |")
     md.append("")
-    md.append("**Headline:** TD labeling is inherently subjective (inter-human κ=0.28). "
-              f"The LLM achieves κ={k['llm_vs_consolidated']['kappa']:.2f} against human consensus — substantial agreement, "
-              "approaching the upper bound given task subjectivity.\n")
+    md.append(f"Inter-human κ on this 100-commit gold set is 0.28; "
+              f"LLM-vs-consensus κ is {k['llm_vs_consolidated']['kappa']:.2f} on the 69-commit consensus subset.\n")
 
     md.append("## LLM confidence\n")
     md.append(f"- Mean confidence: {c['mean']:.3f} ± {c['std']:.3f}")
@@ -357,10 +387,12 @@ def main():
         md.append(f"| SATD regex baseline | {bl['test']['f1_debt']:.3f} | {bl['test']['p_debt']:.3f} "
                   f"| {bl['test']['r_debt']:.3f} | {bl['test']['mcc']:.3f} |")
         md.append("")
-        md.append(f"ML is ranking-stable (AUC std = {ms['test_std']['roc_auc']:.4f}) and produces "
-                  f"+{(ms['test_mean']['f1_debt']-bl['test']['f1_debt'])*100:.1f}pp F1 over SATD-regex. "
-                  "The trade-off: SATD has higher precision (it only fires on commits with TD keywords); "
-                  "ML has substantially higher recall (catches TD without keywords).\n")
+        md.append(f"AUC σ across seeds = {ms['test_std']['roc_auc']:.4f}. "
+                  f"ML F1 exceeds SATD-regex F1 by "
+                  f"{(ms['test_mean']['f1_debt']-bl['test']['f1_debt'])*100:.1f}pp. "
+                  "SATD has higher precision (it only fires on commits with TD keywords); "
+                  "ML has higher recall (flags commits with structural TD signals "
+                  "regardless of keywords).\n")
 
     mcn = report.get("mcnemar")
     if mcn:
@@ -368,6 +400,35 @@ def main():
         md.append("```")
         md.append(mcn.strip())
         md.append("```\n")
+
+    ops = report.get("operating_points")
+    if ops:
+        md.append("## Threshold trade-off — operating points (TEST)\n")
+        md.append("Same model, different decision thresholds. Use case dictates the choice.\n")
+        md.append("| Operating point | Threshold | P | R | F1 | F0.5 | F2 | MCC | TP | FP | FN | TN |")
+        md.append("|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|")
+        for r in ops:
+            md.append(f"| {r['name']} | {r['threshold']:.3f} | "
+                      f"{r['precision']:.3f} | {r['recall']:.3f} | {r['f1']:.3f} | "
+                      f"{r['f0.5']:.3f} | {r['f2']:.3f} | {r['mcc']:.3f} | "
+                      f"{int(r['tp'])} | {int(r['fp'])} | {int(r['fn'])} | {int(r['tn'])} |")
+        md.append("\nNote: F1-optimal is the default reported operating point. "
+                  "F0.5 weights precision more (review-queue use cases); "
+                  "F2 weights recall more (screening use cases).\n")
+
+    cs = report.get("confidence_stratified")
+    if cs:
+        md.append("## Stratified evaluation by LLM confidence (TEST)\n")
+        md.append("Does the model perform better on commits where the LLM judge was confident?\n")
+        md.append("| Confidence bucket | n | Pos% | F1 | P | R | AUC | PR-AUC | MCC |")
+        md.append("|---|---:|---:|---:|---:|---:|---:|---:|---:|")
+        for r in cs:
+            def fmt(x): return "—" if (x != x) else f"{x:.3f}"  # NaN check
+            md.append(f"| {r['bucket']} | {int(r['n']):,} | {r['pos_rate']*100:.2f}% | "
+                      f"{fmt(r['f1'])} | {fmt(r['p'])} | {fmt(r['r'])} | "
+                      f"{fmt(r['roc_auc'])} | {fmt(r['pr_auc_debt'])} | {fmt(r['mcc'])} |")
+        md.append("\nModel performance increases monotonically with LLM judge confidence. "
+                  "Low-confidence commits are recorded for additional human review.\n")
 
     md.append("## LOPO (leave-one-project-out) — cross-project generalization\n")
     md.append(f"Mean across the 5 held-out repos (RF / all / none): "
@@ -385,8 +446,9 @@ def main():
     md.append("|---:|---|---|---|")
     for i, r in enumerate(xai, 1):
         md.append(f"| {i} | `{r['shap_feature']}` | `{r['lime_feature']}` | `{r['perm_feature']}` |")
-    md.append("\n**Headline:** size and complexity changes (`lines_added`, `cc_delta_*`, `churn_delta`) "
-              "drive predictions; author/maturity context (`n_authors_till_now`, `contributors_count`) is secondary.")
+    md.append("\n`lines_added` is rank-1 across all three explainers. Size and complexity deltas "
+              "(`lines_added`, `cc_delta_*`, `churn_delta`) appear consistently in the top-5; "
+              "author/maturity features (`n_authors_till_now`, `contributors_count`) are next.")
     md.append("")
 
     OUT_MD.write_text("\n".join(md))

@@ -12,8 +12,11 @@ Run from repo root:
     python scripts/kappa_analysis.py
 """
 import csv
+import json
 import sys
 from pathlib import Path
+
+import numpy as np
 
 try:
     from sklearn.metrics import cohen_kappa_score, confusion_matrix
@@ -25,6 +28,9 @@ SHEET_B          = Path("artifacts/results/human_review_sheet_b_20260428_183349.
 SHEET_LLM        = Path("artifacts/results/human_review_sheet_llm.csv")
 CONSOLIDATED_GT  = Path("artifacts/results/consolidated_gt.csv")
 DISAGREEMENT     = Path("artifacts/results/disagreement_slice.csv")
+KAPPA_CI         = Path("artifacts/results/kappa_ci.json")
+N_BOOTSTRAP      = 10_000
+BOOTSTRAP_SEED   = 42
 
 
 def norm(val: str) -> int | None:
@@ -133,6 +139,40 @@ def main() -> dict[str, float]:
     rows_b   = load_rows(SHEET_B)
     rows_llm = load_rows(SHEET_LLM)
     save_consolidated_gt(rows_a, rows_b, rows_llm, human_a, human_b, llm)
+
+    # ── Bootstrap 95% CI for each κ ────────────────────────────────────────
+    print(f"\n  Bootstrap 95% CI ({N_BOOTSTRAP:,} resamples, seed={BOOTSTRAP_SEED}):")
+    rng = np.random.default_rng(BOOTSTRAP_SEED)
+    cis: dict[str, dict] = {}
+    for name, (y1, y2) in [
+        ("human_a_vs_human_b",  (ya,   yb)),
+        ("llm_vs_human_a",      (yla,  ylla)),
+        ("llm_vs_human_b",      (ylb,  yllb)),
+        ("llm_vs_consolidated", (ygt,  yllgt)),
+    ]:
+        y1 = np.asarray(y1); y2 = np.asarray(y2)
+        n = len(y1)
+        boots = np.empty(N_BOOTSTRAP)
+        for i in range(N_BOOTSTRAP):
+            idx = rng.integers(0, n, size=n)
+            try:
+                boots[i] = cohen_kappa_score(y1[idx], y2[idx])
+            except Exception:
+                boots[i] = np.nan
+        boots = boots[~np.isnan(boots)]
+        lo, hi = np.percentile(boots, [2.5, 97.5])
+        cis[name] = {
+            "kappa": kappas[name],
+            "n": n,
+            "ci_lo": float(lo),
+            "ci_hi": float(hi),
+            "ci_width": float(hi - lo),
+            "n_bootstrap": int(len(boots)),
+        }
+        print(f"    {name:<30} κ={kappas[name]:.4f}  95% CI=[{lo:.4f}, {hi:.4f}]")
+
+    KAPPA_CI.write_text(json.dumps(cis, indent=2))
+    print(f"  → {KAPPA_CI}")
 
     return kappas
 

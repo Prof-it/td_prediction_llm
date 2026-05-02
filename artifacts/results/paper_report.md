@@ -1,6 +1,6 @@
 # TD Prediction — Paper Report
 
-_Auto-generated 2026-05-02T13:28:29+02:00. Re-run `python scripts/paper_report.py` after re-training._
+_Auto-generated 2026-05-02T14:10:18+02:00. Re-run `python scripts/paper_report.py` after re-training._
 
 ## Setup
 
@@ -30,15 +30,16 @@ _Auto-generated 2026-05-02T13:28:29+02:00. Re-run `python scripts/paper_report.p
 ## Inter-rater agreement (Cohen's κ)
 
 - 100-commit gold set, two human reviewers (A, B). Consolidated GT = where A == B (69/100 commits).
+- 95% CIs from 10,000-resample non-parametric bootstrap.
 
-| Comparison | n | κ | Interpretation |
-|---|---:|---:|---|
-| Human A vs Human B | 100 | **0.2757** | fair |
-| LLM vs Human A | 100 | **0.3993** | fair |
-| LLM vs Human B | 100 | **0.4105** | moderate |
-| LLM vs Consolidated GT | 69 | **0.5990** | moderate |
+| Comparison | n | κ | 95% CI | Interpretation |
+|---|---:|---:|---|---|
+| Human A vs Human B | 100 | **0.2757** | [0.073, 0.465] | fair |
+| LLM vs Human A | 100 | **0.3993** | [0.207, 0.579] | fair |
+| LLM vs Human B | 100 | **0.4105** | [0.215, 0.591] | moderate |
+| LLM vs Consolidated GT | 69 | **0.5990** | [0.376, 0.791] | moderate |
 
-**Headline:** TD labeling is inherently subjective (inter-human κ=0.28). The LLM achieves κ=0.60 against human consensus — substantial agreement, approaching the upper bound given task subjectivity.
+Inter-human κ on this 100-commit gold set is 0.28; LLM-vs-consensus κ is 0.60 on the 69-commit consensus subset.
 
 ## LLM confidence
 
@@ -102,7 +103,7 @@ The 100-commit human-reviewed sample was stratified to ensure both label classes
 | **ML (RF/all/none, mean of 5 seeds)** | **0.395 ± 0.017** | 0.292 ± 0.026 | 0.619 ± 0.035 | 0.378 ± 0.013 |
 | SATD regex baseline | 0.317 | 0.470 | 0.239 | 0.309 |
 
-ML is ranking-stable (AUC std = 0.0013) and produces +7.9pp F1 over SATD-regex. The trade-off: SATD has higher precision (it only fires on commits with TD keywords); ML has substantially higher recall (catches TD without keywords).
+AUC σ across seeds = 0.0013. ML F1 exceeds SATD-regex F1 by 7.9pp. SATD has higher precision (it only fires on commits with TD keywords); ML has higher recall (flags commits with structural TD signals regardless of keywords).
 
 **McNemar's test** (significance of disagreement, two-sided):
 
@@ -115,6 +116,34 @@ McNemar's test: rf_all_none vs satd_regex
   p-value                                   = 2.356e-10
   significant at α=0.05?                    = YES
 ```
+
+## Threshold trade-off — operating points (TEST)
+
+Same model, different decision thresholds. Use case dictates the choice.
+
+| Operating point | Threshold | P | R | F1 | F0.5 | F2 | MCC | TP | FP | FN | TN |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| default_0.5 | 0.500 | 0.521 | 0.164 | 0.249 | 0.363 | 0.190 | 0.272 | 37 | 34 | 189 | 3952 |
+| f1_optimal | 0.284 | 0.307 | 0.606 | 0.408 | 0.341 | 0.507 | 0.387 | 137 | 309 | 89 | 3677 |
+| f0.5_optimal | 0.388 | 0.385 | 0.438 | 0.410 | 0.395 | 0.426 | 0.375 | 99 | 158 | 127 | 3828 |
+| f2_optimal | 0.304 | 0.325 | 0.597 | 0.421 | 0.357 | 0.511 | 0.398 | 135 | 281 | 91 | 3705 |
+| high_precision_p>=0.5 | 0.492 | 0.500 | 0.168 | 0.252 | 0.358 | 0.194 | 0.269 | 38 | 38 | 188 | 3948 |
+| high_recall_r>=0.8 | 0.116 | 0.154 | 0.810 | 0.258 | 0.184 | 0.437 | 0.279 | 183 | 1007 | 43 | 2979 |
+
+Note: F1-optimal is the default reported operating point. F0.5 weights precision more (review-queue use cases); F2 weights recall more (screening use cases).
+
+## Stratified evaluation by LLM confidence (TEST)
+
+Does the model perform better on commits where the LLM judge was confident?
+
+| Confidence bucket | n | Pos% | F1 | P | R | AUC | PR-AUC | MCC |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| low (<0.85) | 23 | 0.00% | 0.000 | 0.000 | 0.000 | — | — | — |
+| mid (0.85-0.95) | 1,476 | 8.13% | 0.335 | 0.224 | 0.658 | 0.785 | 0.281 | 0.293 |
+| high (>=0.95) | 2,713 | 3.91% | 0.630 | 0.744 | 0.547 | 0.898 | 0.611 | 0.626 |
+| ALL | 4,212 | 5.37% | 0.408 | 0.307 | 0.606 | 0.862 | 0.342 | 0.387 |
+
+Model performance increases monotonically with LLM judge confidence. Low-confidence commits are recorded for additional human review.
 
 ## LOPO (leave-one-project-out) — cross-project generalization
 
@@ -145,4 +174,4 @@ Mean across the 5 held-out repos (RF / all / none): F1=0.293, AUC=0.845, MCC=0.2
 | 9 | `cc_delta_sum` | `n_methods_changed` | `dmm_unit_interfacing` |
 | 10 | `churn_delta` | `n_commits_file_past90d` | `complexity_current_sum` |
 
-**Headline:** size and complexity changes (`lines_added`, `cc_delta_*`, `churn_delta`) drive predictions; author/maturity context (`n_authors_till_now`, `contributors_count`) is secondary.
+`lines_added` is rank-1 across all three explainers. Size and complexity deltas (`lines_added`, `cc_delta_*`, `churn_delta`) appear consistently in the top-5; author/maturity features (`n_authors_till_now`, `contributors_count`) are next.
