@@ -121,11 +121,31 @@ def _time_metrics() -> dict:
             "f1_debt", "roc_auc", "pr_auc_debt",
             "p_debt", "r_debt", "mcc", "balanced_acc"]
 
+    # Threshold info: RF/all/none tuned threshold, default would be 0.5
+    best_row_full = test[(test.model==best.model)&(test.feature_set==best.feature_set)&(test.imbalance==best.imbalance)].iloc[0]
+    threshold_info = {
+        "tuned_threshold": float(best_row_full["tuned_threshold"]),
+        "threshold_objective": str(best_row_full["threshold_objective"]),
+        "default_threshold": 0.5,
+    }
+
+    # Full ablation table: all 18 configurations, test phase
+    ablation = test[cols].copy()
+
     return {
         "best": best[cols].to_dict(),
         "best_val": val[(val.model==best.model)&(val.feature_set==best.feature_set)&(val.imbalance==best.imbalance)].iloc[0][cols].to_dict(),
-        "all_test": test[cols].to_dict("records"),
+        "threshold": threshold_info,
+        "all_test": ablation.to_dict("records"),
     }
+
+
+def _stratification() -> dict | None:
+    p = Path("artifacts/results/audit_stratification.csv")
+    if not p.exists():
+        return None
+    df = pd.read_csv(p)
+    return {dim: df[df["dimension"] == dim].to_dict("records") for dim in df["dimension"].unique()}
 
 
 def _lopo_metrics() -> dict:
@@ -218,6 +238,7 @@ def main():
         "confidence":  _confidence_stats(),
         "time_split":  _time_metrics(),
         "lopo":        _lopo_metrics(),
+        "stratification": _stratification(),
         "satd_baseline": _baseline_metrics(),
         "multiseed":     _multiseed(),
         "mcnemar":       _mcnemar(),
@@ -286,13 +307,40 @@ def main():
     md.append(f"- {c['low_confidence_count']} commits with confidence < {c['low_confidence_threshold']} "
               f"({c['low_confidence_count']/c['n']*100:.2f}% of corpus) — flagged for additional human review\n")
 
+    strat = report.get("stratification")
+    if strat:
+        md.append("## Gold-set stratification\n")
+        md.append("The 100-commit human-reviewed sample was stratified to ensure both label "
+                  "classes are well represented. Pure random sampling at the corpus's 3.1% SATD "
+                  "rate would yield ~3 SATD-positive cases out of 100, making κ unreliable.\n")
+        md.append("| Dimension | Stratum | Corpus | Gold | Expected | Observed |")
+        md.append("|---|---|---:|---:|---:|---:|")
+        for dim in ["repo", "size", "label_satd"]:
+            for r in strat.get(dim, []):
+                md.append(f"| {dim} | {r['stratum']} | {int(r['corpus_n']):,} | "
+                          f"{int(r['gold_n'])} | {float(r['expected_in_gold']):.1f} | "
+                          f"{int(r['observed_in_gold'])} |")
+        md.append("")
+
     md.append("## Time-split — best model on TEST\n")
     b = tm["best"]; bv = tm["best_val"]
-    md.append(f"**{b['model']} / {b['feature_set']} / {b['imbalance']}**\n")
+    th = tm["threshold"]
+    md.append(f"**{b['model']} / {b['feature_set']} / {b['imbalance']}**, classification threshold "
+              f"tuned on validation: **{th['tuned_threshold']:.3f}** (objective: {th['threshold_objective']}).\n")
     md.append("| Phase | F1 | AUC | PR-AUC | P | R | MCC | Bal.Acc. |")
     md.append("|---|---:|---:|---:|---:|---:|---:|---:|")
     md.append(f"| val  | {bv['f1_debt']:.3f} | {bv['roc_auc']:.3f} | {bv['pr_auc_debt']:.3f} | {bv['p_debt']:.3f} | {bv['r_debt']:.3f} | {bv['mcc']:.3f} | {bv['balanced_acc']:.3f} |")
     md.append(f"| **test** | **{b['f1_debt']:.3f}** | **{b['roc_auc']:.3f}** | **{b['pr_auc_debt']:.3f}** | **{b['p_debt']:.3f}** | **{b['r_debt']:.3f}** | **{b['mcc']:.3f}** | **{b['balanced_acc']:.3f}** |")
+    md.append("")
+
+    # Full ablation table
+    md.append("### Full ablation (all 18 configurations, TEST)\n")
+    md.append("| Model | Features | Imbalance | F1 | AUC | PR-AUC | P | R | MCC |")
+    md.append("|---|---|---|---:|---:|---:|---:|---:|---:|")
+    for r in sorted(tm["all_test"], key=lambda x: -x["f1_debt"]):
+        md.append(f"| {r['model']} | {r['feature_set']} | {r['imbalance']} | "
+                  f"{r['f1_debt']:.3f} | {r['roc_auc']:.3f} | {r['pr_auc_debt']:.3f} | "
+                  f"{r['p_debt']:.3f} | {r['r_debt']:.3f} | {r['mcc']:.3f} |")
     md.append("")
 
     bl = report.get("satd_baseline")

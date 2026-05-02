@@ -1,6 +1,6 @@
 # TD Prediction — Paper Report
 
-_Auto-generated 2026-05-02T01:58:30+02:00. Re-run `python scripts/paper_report.py` after re-training._
+_Auto-generated 2026-05-02T13:28:29+02:00. Re-run `python scripts/paper_report.py` after re-training._
 
 ## Setup
 
@@ -45,14 +45,55 @@ _Auto-generated 2026-05-02T01:58:30+02:00. Re-run `python scripts/paper_report.p
 - Mean confidence: 0.957 ± 0.038
 - 80 commits with confidence < 0.85 (0.38% of corpus) — flagged for additional human review
 
+## Gold-set stratification
+
+The 100-commit human-reviewed sample was stratified to ensure both label classes are well represented. Pure random sampling at the corpus's 3.1% SATD rate would yield ~3 SATD-positive cases out of 100, making κ unreliable.
+
+| Dimension | Stratum | Corpus | Gold | Expected | Observed |
+|---|---|---:|---:|---:|---:|
+| repo | fastapi | 934 | 5 | 4.4 | 5 |
+| repo | flask | 1,967 | 6 | 9.3 | 6 |
+| repo | keras | 9,256 | 51 | 44.0 | 51 |
+| repo | requests | 2,749 | 13 | 13.1 | 13 |
+| repo | scrapy | 6,132 | 25 | 29.1 | 25 |
+| size | XS (≤Q1) | 6,305 | 15 | 30.0 | 15 |
+| size | S (Q1-Q2) | 4,625 | 13 | 22.0 | 13 |
+| size | M (Q2-Q3) | 4,873 | 16 | 23.2 | 16 |
+| size | L (>Q3) | 5,235 | 56 | 24.9 | 56 |
+| label_satd | 0 | 20,390 | 50 | 96.9 | 50 |
+| label_satd | 1 | 648 | 50 | 3.1 | 50 |
+
 ## Time-split — best model on TEST
 
-**rf / all / none**
+**rf / all / none**, classification threshold tuned on validation: **0.284** (objective: f1).
 
 | Phase | F1 | AUC | PR-AUC | P | R | MCC | Bal.Acc. |
 |---|---:|---:|---:|---:|---:|---:|---:|
 | val  | 0.501 | 0.896 | 0.416 | 0.407 | 0.651 | 0.462 | 0.785 |
 | **test** | **0.409** | **0.866** | **0.343** | **0.309** | **0.606** | **0.388** | **0.765** |
+
+### Full ablation (all 18 configurations, TEST)
+
+| Model | Features | Imbalance | F1 | AUC | PR-AUC | P | R | MCC |
+|---|---|---|---:|---:|---:|---:|---:|---:|
+| rf | all | none | 0.409 | 0.866 | 0.343 | 0.309 | 0.606 | 0.388 |
+| rf | all | class_weight | 0.407 | 0.869 | 0.325 | 0.311 | 0.588 | 0.384 |
+| lgbm | all | class_weight | 0.390 | 0.853 | 0.304 | 0.290 | 0.593 | 0.368 |
+| xgb | all | none | 0.384 | 0.851 | 0.301 | 0.294 | 0.553 | 0.357 |
+| xgb | all | class_weight | 0.383 | 0.852 | 0.301 | 0.284 | 0.584 | 0.360 |
+| rf | change_only | class_weight | 0.377 | 0.862 | 0.317 | 0.279 | 0.580 | 0.354 |
+| lgbm | all | none | 0.376 | 0.861 | 0.319 | 0.294 | 0.522 | 0.346 |
+| rf | change_only | none | 0.375 | 0.865 | 0.328 | 0.271 | 0.611 | 0.357 |
+| rf | all | smote | 0.350 | 0.856 | 0.265 | 0.276 | 0.478 | 0.316 |
+| lgbm | change_only | none | 0.339 | 0.837 | 0.271 | 0.257 | 0.496 | 0.307 |
+| lgbm | change_only | class_weight | 0.333 | 0.812 | 0.258 | 0.258 | 0.469 | 0.298 |
+| lgbm | all | smote | 0.318 | 0.811 | 0.256 | 0.255 | 0.425 | 0.280 |
+| xgb | change_only | none | 0.316 | 0.812 | 0.267 | 0.251 | 0.425 | 0.277 |
+| xgb | change_only | smote | 0.308 | 0.781 | 0.237 | 0.251 | 0.398 | 0.267 |
+| xgb | all | smote | 0.308 | 0.813 | 0.229 | 0.246 | 0.412 | 0.268 |
+| rf | change_only | smote | 0.306 | 0.842 | 0.239 | 0.221 | 0.496 | 0.275 |
+| lgbm | change_only | smote | 0.305 | 0.795 | 0.244 | 0.258 | 0.372 | 0.263 |
+| xgb | change_only | class_weight | 0.297 | 0.795 | 0.252 | 0.215 | 0.482 | 0.265 |
 
 ## ML model vs SATD-regex baseline (TEST)
 
