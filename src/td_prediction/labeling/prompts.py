@@ -187,7 +187,7 @@ def v1_diff_removed(row: dict, diff_text: str, *, few_shot=None) -> list[dict]:
 
 
 VARIANTS: dict[str, Callable[..., list[dict]]] = {
-    # v2 — used for the workshop-paper iteration.
+    # v2 — current iteration.
     "v2_rubric_json":     v2_rubric_json,
     "v2_rubric_no_diff":  v2_rubric_no_diff,
     "v2_rubric_diff_only": v2_rubric_diff_only,
