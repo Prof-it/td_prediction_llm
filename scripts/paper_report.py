@@ -329,8 +329,10 @@ def main():
             ci_str = f"[{cis[name]['ci_lo']:.3f}, {cis[name]['ci_hi']:.3f}]"
         md.append(f"| {label} | {nv} | **{kv:.4f}** | {ci_str} | {interp} |")
     md.append("")
-    md.append(f"Inter-human κ on this 100-commit gold set is 0.28; "
-              f"LLM-vs-consensus κ is {k['llm_vs_consolidated']['kappa']:.2f} on the 69-commit consensus subset.\n")
+    md.append(f"Inter-human κ on this {k['gold_set_size']}-commit gold set is "
+              f"{k['human_a_vs_human_b']['kappa']:.2f}; "
+              f"LLM-vs-consensus κ is {k['llm_vs_consolidated']['kappa']:.2f} on the "
+              f"{k['consolidated_gt_size']}-commit consensus subset.\n")
 
     md.append("## LLM confidence\n")
     md.append(f"- Mean confidence: {c['mean']:.3f} ± {c['std']:.3f}")
@@ -414,7 +416,76 @@ def main():
                       f"{int(r['tp'])} | {int(r['fp'])} | {int(r['fn'])} | {int(r['tn'])} |")
         md.append("\nNote: F1-optimal is the default reported operating point. "
                   "F0.5 weights precision more (review-queue use cases); "
-                  "F2 weights recall more (screening use cases).\n")
+                  "F2 weights recall more (screening use cases). "
+                  "`cost_optimal_*` minimises a misclassification cost function "
+                  "(see next section) at the indicated C_FN:C_FP ratio.\n")
+
+        # Cost-curve plots
+        md.append("![PR curve](../figures/pr_curve.png)")
+        md.append("![Threshold sweep](../figures/threshold_sweep.png)\n")
+
+    # Cost-function section
+    cost_ops = [r for r in (ops or []) if r["name"].startswith("cost_optimal")]
+    if cost_ops:
+        md.append("## Misclassification cost analysis (TEST)\n")
+        md.append("We evaluate the model under an explicit misclassification cost model:\n")
+        md.append("> **Cost = C_FN · FN + C_FP · FP**\n")
+        md.append("A false negative (a TD-introducing commit the model failed to flag) is "
+                  "generally more expensive than a false positive (an unnecessary entry "
+                  "on the reviewer's queue): the FN's cost compounds in maintenance debt, "
+                  "the FP's cost is bounded by review time. We do not commit to a single "
+                  "ratio; instead we report three.\n")
+        md.append("| Ratio (C_FN:C_FP) | Threshold | TP | FP | FN | F1 | Precision | Recall |")
+        md.append("|---|---:|---:|---:|---:|---:|---:|---:|")
+        for r in cost_ops:
+            ratio = r["name"].replace("cost_optimal_", "")
+            md.append(f"| {ratio} | {r['threshold']:.3f} | {int(r['tp'])} | "
+                      f"{int(r['fp'])} | {int(r['fn'])} | {r['f1']:.3f} | "
+                      f"{r['precision']:.3f} | {r['recall']:.3f} |")
+        md.append("")
+        # Pull the operating points we reference in the prose
+        op_by_name = {r["name"]: r for r in (ops or [])}
+        c11   = op_by_name.get("cost_optimal_1:1")
+        c10_1 = op_by_name.get("cost_optimal_10:1")
+        f1op  = op_by_name.get("f1_optimal")
+
+        # Test positive rate (from confusion-matrix totals at any operating point)
+        if c11:
+            n_pos_test = int(c11["tp"]) + int(c11["fn"])
+            n_test     = n_pos_test + int(c11["fp"]) + int(c11["tn"])
+            pos_rate   = n_pos_test / n_test if n_test else 0.0
+        else:
+            n_pos_test = n_test = 0; pos_rate = 0.0
+
+        md.append("Three observations:\n")
+        if c11:
+            md.append(f"- **At 1:1 the model becomes silent.** With a "
+                      f"{pos_rate*100:.1f}% positive rate in the test set "
+                      f"(n={n_test:,}, {n_pos_test} TD-positive), treating both errors "
+                      f"as equally bad mathematically pushes the optimum toward not "
+                      f"flagging anything; only {int(c11['tp'])} of {n_pos_test} TD "
+                      f"commits ({int(c11['tp'])/max(n_pos_test,1)*100:.0f}%) are caught. "
+                      f"This is why F1 — not raw accuracy — is the standard metric for "
+                      f"imbalanced detection.")
+        md.append("- **F1-optimal lies in the same neighbourhood as cost-optimal at 5:1.** "
+                  "The F1 criterion implicitly assumes a cost ratio close to 5:1; "
+                  "reporting F1 alone is therefore a hidden cost-modelling choice rather "
+                  "than a neutral metric.")
+        if c10_1 and f1op:
+            extra_tp = int(c10_1["tp"]) - int(f1op["tp"])
+            extra_fp = int(c10_1["fp"]) - int(f1op["fp"])
+            md.append(f"- **At 10:1 the cost-optimal threshold "
+                      f"(≈{c10_1['threshold']:.2f}) lies below the F1-optimal threshold "
+                      f"(≈{f1op['threshold']:.2f}).** Catching {extra_tp} additional TD "
+                      f"commits requires accepting {extra_fp} additional false positives. "
+                      f"Whether this trade is worthwhile depends on the deployment "
+                      f"context.\n")
+        md.append("The 5:1 and 10:1 ratios are not derived from a published cost model — "
+                  "we adopt them as plausible bounds motivated by the gap between typical "
+                  "code-review effort (minutes per commit) and typical TD remediation "
+                  "effort (hours to days). The 1:1 row is a sensitivity check, not a "
+                  "recommended operating point.\n")
+        md.append("![Cost vs threshold](../figures/cost_vs_threshold.png)\n")
 
     cs = report.get("confidence_stratified")
     if cs:
@@ -429,6 +500,8 @@ def main():
                       f"{fmt(r['roc_auc'])} | {fmt(r['pr_auc_debt'])} | {fmt(r['mcc'])} |")
         md.append("\nModel performance increases monotonically with LLM judge confidence. "
                   "Low-confidence commits are recorded for additional human review.\n")
+        md.append("![PR curve by confidence](../figures/pr_curve_by_confidence.png)")
+        md.append("![Threshold sweep by confidence](../figures/threshold_sweep_by_confidence.png)\n")
 
     md.append("## LOPO (leave-one-project-out) — cross-project generalization\n")
     md.append(f"Mean across the 5 held-out repos (RF / all / none): "

@@ -5,7 +5,7 @@
 # /data — committed for reproducibility
 /llm_batch
 /artifacts/models
-/artifacts/figures
+# /artifacts/figures — committed so README/report image references resolve on web view
 __pycache__/
 *.pyc
 artifacts/diffs/*

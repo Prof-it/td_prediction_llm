@@ -1,8 +1,8 @@
 # Key Findings
 
-A consolidated summary of the most important results, each with the **script that produced it** so anyone can reproduce. Re-run any script from the repo root.
+A hand-curated summary of the most important results, each with the **script that produced it** so anyone can reproduce. Re-run any script from the repo root.
 
-The full numeric report (auto-generated) lives at [artifacts/results/paper_report.md](artifacts/results/paper_report.md).
+> **Note on freshness.** This file is **not auto-generated**. The numbers below are a snapshot taken from the most recent training run (see commit history). They are correct for the artifacts currently in this repository but will drift if the pipeline is re-trained on different data without updating this file. The auto-generated companion is **[artifacts/results/paper_report.md](artifacts/results/paper_report.md)** — that file always reflects the latest run because every number in it is derived from CSVs at generation time. If you re-run `python scripts/build_all_paper_artifacts.py` and want fresh prose, re-derive from `paper_report.md`.
 
 ---
 
@@ -73,7 +73,36 @@ On the 64% of test commits where the LLM judge confidence is ≥0.95, the model 
 
 ---
 
-## 6. Threshold trade-off — choose the operating point that fits the use case
+## 6. Cost-function analysis — the optimal threshold depends on what we assume errors actually cost
+
+We evaluate the model under an explicit misclassification cost function:
+
+> **Cost = C_FN · FN + C_FP · FP**
+
+A false negative (a TD-introducing commit the model failed to flag) is generally more expensive than a false positive (an unnecessary entry on the reviewer's queue): the FN's cost compounds in maintenance debt, the FP's cost is bounded by review time. We do not commit to a single ratio; instead we report three:
+
+| Ratio (C_FN:C_FP) | Threshold | TP | FP | FN | TD caught | F1 |
+|---|---:|---:|---:|---:|---:|---:|
+| 1:1 | 0.580 | 22 | 12 | 204 | **10%** | 0.169 |
+| 5:1 | 0.312 | 133 | 265 | 93 | **59%** | 0.426 |
+| 10:1 | 0.240 | 149 | 412 | 77 | **66%** | 0.379 |
+
+Three observations:
+
+- **At 1:1 the model becomes silent.** With a 5.4% positive rate in the test set, treating both errors as equally bad mathematically pushes the optimum toward not flagging anything; only 22 of 226 TD commits (10%) get caught. This is exactly why F1 — not raw accuracy — is the standard metric for imbalanced detection.
+- **F1-optimal lies in the same neighbourhood as cost-optimal at 5:1.** The widely used F1 criterion implicitly assumes a cost ratio close to 5:1; reporting F1 alone is therefore a hidden cost-modelling choice rather than a neutral metric.
+- **At 10:1 the cost-optimal threshold (≈0.24) lies below the F1-optimal threshold (≈0.28).** Catching 12 additional TD commits requires accepting 103 additional false positives. Whether this trade is worthwhile depends on the deployment context.
+
+The 5:1 and 10:1 ratios are not derived from a published cost model — we adopt them as plausible bounds motivated by the gap between typical code-review effort (minutes per commit) and typical TD remediation effort (hours to days). The 1:1 row is included as a sensitivity check, not a recommended operating point.
+
+**Evidence**
+- [scripts/threshold_curve.py](scripts/threshold_curve.py) — computes cost across thresholds and identifies cost-optimal points for each ratio
+- Outputs: [artifacts/results/cost_curve.csv](artifacts/results/cost_curve.csv), cost-rows in [artifacts/results/operating_points.csv](artifacts/results/operating_points.csv)
+- Plot: [artifacts/figures/cost_vs_threshold.png](artifacts/figures/cost_vs_threshold.png)
+
+---
+
+## 7. Threshold trade-off — choose the operating point that fits the use case
 
 | Operating point | Threshold | P | R | F1 |
 |---|---:|---:|---:|---:|
@@ -92,7 +121,7 @@ The same trained model can operate at P=0.50 / R=0.17 (high-precision flagging) 
 
 ---
 
-## 7. XAI: three independent methods agree on the dominant features
+## 8. XAI: three independent methods agree on the dominant features
 
 `lines_added` is rank-1 across SHAP, LIME, and Permutation Importance. The complete top-3 differs slightly per method, but all three identify size and complexity deltas (`lines_added`, `cc_delta_max`, `churn_delta`) as the dominant signal, with author/maturity context (`n_authors_till_now`, `contributors_count`) as secondary.
 
@@ -102,7 +131,7 @@ The same trained model can operate at P=0.50 / R=0.17 (high-precision flagging) 
 
 ---
 
-## 8. Cross-project generalization is weaker than within-project temporal generalization
+## 9. Cross-project generalization is weaker than within-project temporal generalization
 
 | Held-out repo | F1 | AUC | MCC |
 |---|---:|---:|---:|
@@ -121,7 +150,7 @@ LOPO mean F1 = 0.29 vs time-split test F1 = 0.41. The model transfers reasonably
 
 ---
 
-## 9. The gold set is stratified, by design
+## 10. The gold set is stratified, by design
 
 The 100-commit human-reviewed sample uses a 50/50 split by `label_satd`. Pure random sampling at the corpus's 3.1% SATD rate would yield ~3 SATD-positive cases — too few for stable κ estimates. By-repo balance is moderate (max deviation 36%); large commits are intentionally over-represented because SATD keywords correlate with diff size.
 

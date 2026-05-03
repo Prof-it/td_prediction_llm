@@ -46,6 +46,15 @@ LABEL_COL = "label_consolidated"
 FEATURES_CSV = Path("data/features_with_llm_labels.csv")
 OUT_CURVE = Path("artifacts/results/pr_curve.csv")
 OUT_OPS   = Path("artifacts/results/operating_points.csv")
+OUT_COST  = Path("artifacts/results/cost_curve.csv")
+
+# Cost-function ratios. C_FN : C_FP — how many false positives equal one
+# false negative? FN (missed TD) is more costly than FP (wasted review).
+# 5:1 is a conservative default; 1:1 is a neutral sensitivity check;
+# 10:1 reflects literature suggesting TD-remediation is ~order-of-magnitude
+# more expensive than a code review pass.
+COST_RATIOS = [(1, 1), (5, 1), (10, 1)]
+DEFAULT_RATIO = (5, 1)
 
 
 def _refresh_labels(split: Split, labels_df: pd.DataFrame) -> Split:
@@ -59,6 +68,23 @@ def _refresh_labels(split: Split, labels_df: pd.DataFrame) -> Split:
 
     return Split(train=_merge(split.train), val=_merge(split.val),
                  test=_merge(split.test), name=split.name)
+
+
+def _cost_at_threshold(y_true: np.ndarray, y_score: np.ndarray, threshold: float,
+                       c_fn: float, c_fp: float) -> tuple[float, int, int]:
+    """Compute Cost = c_fn * FN + c_fp * FP at a given threshold."""
+    pred = (y_score >= threshold).astype(int)
+    fn = int(((y_true == 1) & (pred == 0)).sum())
+    fp = int(((y_true == 0) & (pred == 1)).sum())
+    return c_fn * fn + c_fp * fp, fn, fp
+
+
+def _cost_optimal_threshold(y_true: np.ndarray, y_score: np.ndarray,
+                            t_arr: np.ndarray, c_fn: float, c_fp: float) -> float:
+    """Scan all candidate thresholds and return the one that minimises cost."""
+    costs = np.array([_cost_at_threshold(y_true, y_score, t, c_fn, c_fp)[0]
+                      for t in t_arr])
+    return float(t_arr[int(np.argmin(costs))])
 
 
 def _operating_point(name: str, y_true, y_score, threshold: float) -> dict:
@@ -155,6 +181,36 @@ def main():
         valid_thresholds = t_arr[mask_r]
         ops.append(_operating_point("high_recall_r>=0.8",
                                      y_true, y_score, float(valid_thresholds.max())))
+
+    # Cost-optimal operating points for each (C_FN : C_FP) ratio
+    cost_curve_rows = []
+    for c_fn, c_fp in COST_RATIOS:
+        # Best threshold for this ratio
+        best_t = _cost_optimal_threshold(y_true, y_score, t_arr, c_fn, c_fp)
+        ratio_label = f"{c_fn}:{c_fp}"
+        op_name = f"cost_optimal_{ratio_label}"
+        op = _operating_point(op_name, y_true, y_score, best_t)
+        op_cost, _, _ = _cost_at_threshold(y_true, y_score, best_t, c_fn, c_fp)
+        op["cost"] = float(op_cost)
+        op["c_fn"] = int(c_fn); op["c_fp"] = int(c_fp)
+        ops.append(op)
+
+        # Full cost-vs-threshold curve for this ratio
+        for t in t_arr:
+            cost, fn, fp = _cost_at_threshold(y_true, y_score, t, c_fn, c_fp)
+            cost_curve_rows.append({
+                "ratio":     ratio_label,
+                "c_fn":      int(c_fn),
+                "c_fp":      int(c_fp),
+                "threshold": float(t),
+                "fn":        fn,
+                "fp":        fp,
+                "cost":      float(cost),
+            })
+
+    cost_df = pd.DataFrame(cost_curve_rows)
+    cost_df.to_csv(OUT_COST, index=False)
+    print(f"Cost curve ({len(cost_df)} rows × {len(COST_RATIOS)} ratios) → {OUT_COST}")
 
     ops_df = pd.DataFrame(ops)
     ops_df.to_csv(OUT_OPS, index=False)

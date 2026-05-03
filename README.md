@@ -4,8 +4,8 @@ Predict whether a commit introduces technical debt, using mechanical code metric
 
 ![Workflow](artifacts/figures/workflowdiagram.drawio.svg)
 
-**See [FINDINGS.md](FINDINGS.md) for a summary of results with reproduction pointers.**
-**See [artifacts/results/paper_report.md](artifacts/results/paper_report.md) for the auto-generated full numeric report.**
+**See [FINDINGS.md](FINDINGS.md) for a hand-curated summary of results with reproduction pointers** — snapshot prose, will drift if re-trained without updating.
+**See [artifacts/results/paper_report.md](artifacts/results/paper_report.md) for the auto-generated full numeric report** — every number derives from CSVs at generation time, so it always reflects the latest run.
 
 ## Quick start
 
@@ -48,7 +48,7 @@ xai/
 
 | Script | Purpose |
 |---|---|
-| **`build_all_paper_artifacts.py`** | **End-to-end orchestrator — runs all 11 steps in order, idempotent** |
+| **`build_all_paper_artifacts.py`** | **End-to-end orchestrator — runs all 12 steps in order, idempotent** |
 | `llm_autoreview.py`         | Sync API LLM labeling on the 100-commit gold set |
 | `build_v2_batches.py`       | Build batch JSONL files for full-corpus LLM labeling |
 | `submit_batches.py`         | Submit + poll OpenAI batches |
@@ -60,6 +60,7 @@ xai/
 | `baselines_and_tests.py`    | SATD-regex baseline + multi-seed runs + McNemar's test |
 | `threshold_curve.py`        | Precision-recall curve + canonical operating points |
 | `confidence_stratified_eval.py` | Test metrics bucketed by LLM confidence |
+| `make_plots.py`             | PR curve, threshold sweep, cost-vs-threshold, stratified PR |
 | `paper_report.py`           | Aggregate everything into `paper_report.{md,json}` |
 
 ### Artifacts (`artifacts/`)
@@ -82,13 +83,21 @@ results/
     audit_low_confidence.csv         80 commits flagged for human review
     xai_topk_lgbm.csv                SHAP / LIME / Permutation top features
     parsed_labels_v2_rubric_json.csv per-commit LLM label + rationale + confidence
+    cost_curve.csv                   misclassification cost vs threshold,
+                                     across three C_FN:C_FP ratios
     human_review_sheet_a*.csv        human reviewer A's labels
     human_review_sheet_b*.csv        human reviewer B's labels
     human_review_sheet_llm.csv       LLM labels on the gold set
     human_review_sheet_review.html   HTML tool for new reviews
     adjudication_tool.html           side-by-side review for disagreements
 
-figures/                              plots (SHAP summaries, etc.)
+figures/
+    pr_curve.png                     precision-recall curve with operating points
+    threshold_sweep.png              precision/recall/F1 vs decision threshold
+    cost_vs_threshold.png            misclassification cost vs threshold (3 ratios)
+    pr_curve_by_confidence.png       PR curves stratified by LLM confidence
+    threshold_sweep_by_confidence.png  P/R/F1 vs threshold stratified by LLM confidence
+    shap_summary_lgbm.png            SHAP feature-importance plot
 models/                               trained model bundles (joblib)
 diffs/                                cached GitHub commit diffs
 ```

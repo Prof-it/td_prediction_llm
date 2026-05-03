@@ -1,6 +1,6 @@
 # TD Prediction — Paper Report
 
-_Auto-generated 2026-05-02T14:10:18+02:00. Re-run `python scripts/paper_report.py` after re-training._
+_Auto-generated 2026-05-03T02:05:51+02:00. Re-run `python scripts/paper_report.py` after re-training._
 
 ## Setup
 
@@ -129,8 +129,38 @@ Same model, different decision thresholds. Use case dictates the choice.
 | f2_optimal | 0.304 | 0.325 | 0.597 | 0.421 | 0.357 | 0.511 | 0.398 | 135 | 281 | 91 | 3705 |
 | high_precision_p>=0.5 | 0.492 | 0.500 | 0.168 | 0.252 | 0.358 | 0.194 | 0.269 | 38 | 38 | 188 | 3948 |
 | high_recall_r>=0.8 | 0.116 | 0.154 | 0.810 | 0.258 | 0.184 | 0.437 | 0.279 | 183 | 1007 | 43 | 2979 |
+| cost_optimal_1:1 | 0.580 | 0.647 | 0.097 | 0.169 | 0.304 | 0.117 | 0.238 | 22 | 12 | 204 | 3974 |
+| cost_optimal_5:1 | 0.312 | 0.334 | 0.588 | 0.426 | 0.366 | 0.511 | 0.402 | 133 | 265 | 93 | 3721 |
+| cost_optimal_10:1 | 0.240 | 0.266 | 0.659 | 0.379 | 0.302 | 0.509 | 0.369 | 149 | 412 | 77 | 3574 |
 
-Note: F1-optimal is the default reported operating point. F0.5 weights precision more (review-queue use cases); F2 weights recall more (screening use cases).
+Note: F1-optimal is the default reported operating point. F0.5 weights precision more (review-queue use cases); F2 weights recall more (screening use cases). `cost_optimal_*` minimises a misclassification cost function (see next section) at the indicated C_FN:C_FP ratio.
+
+![PR curve](../figures/pr_curve.png)
+![Threshold sweep](../figures/threshold_sweep.png)
+
+## Misclassification cost analysis (TEST)
+
+We evaluate the model under an explicit misclassification cost model:
+
+> **Cost = C_FN · FN + C_FP · FP**
+
+A false negative (a TD-introducing commit the model failed to flag) is generally more expensive than a false positive (an unnecessary entry on the reviewer's queue): the FN's cost compounds in maintenance debt, the FP's cost is bounded by review time. We do not commit to a single ratio; instead we report three.
+
+| Ratio (C_FN:C_FP) | Threshold | TP | FP | FN | F1 | Precision | Recall |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| 1:1 | 0.580 | 22 | 12 | 204 | 0.169 | 0.647 | 0.097 |
+| 5:1 | 0.312 | 133 | 265 | 93 | 0.426 | 0.334 | 0.588 |
+| 10:1 | 0.240 | 149 | 412 | 77 | 0.379 | 0.266 | 0.659 |
+
+Three observations:
+
+- **At 1:1 the model becomes silent.** With a 5.4% positive rate in the test set (n=4,212, 226 TD-positive), treating both errors as equally bad mathematically pushes the optimum toward not flagging anything; only 22 of 226 TD commits (10%) are caught. This is why F1 — not raw accuracy — is the standard metric for imbalanced detection.
+- **F1-optimal lies in the same neighbourhood as cost-optimal at 5:1.** The F1 criterion implicitly assumes a cost ratio close to 5:1; reporting F1 alone is therefore a hidden cost-modelling choice rather than a neutral metric.
+- **At 10:1 the cost-optimal threshold (≈0.24) lies below the F1-optimal threshold (≈0.28).** Catching 12 additional TD commits requires accepting 103 additional false positives. Whether this trade is worthwhile depends on the deployment context.
+
+The 5:1 and 10:1 ratios are not derived from a published cost model — we adopt them as plausible bounds motivated by the gap between typical code-review effort (minutes per commit) and typical TD remediation effort (hours to days). The 1:1 row is a sensitivity check, not a recommended operating point.
+
+![Cost vs threshold](../figures/cost_vs_threshold.png)
 
 ## Stratified evaluation by LLM confidence (TEST)
 
@@ -144,6 +174,9 @@ Does the model perform better on commits where the LLM judge was confident?
 | ALL | 4,212 | 5.37% | 0.408 | 0.307 | 0.606 | 0.862 | 0.342 | 0.387 |
 
 Model performance increases monotonically with LLM judge confidence. Low-confidence commits are recorded for additional human review.
+
+![PR curve by confidence](../figures/pr_curve_by_confidence.png)
+![Threshold sweep by confidence](../figures/threshold_sweep_by_confidence.png)
 
 ## LOPO (leave-one-project-out) — cross-project generalization
 
