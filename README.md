@@ -2,7 +2,7 @@
 
 Predict whether a commit introduces technical debt, using mechanical code metrics trained against an LLM-as-judge ground truth that has been validated against a 100-commit human gold set.
 
-![Workflow](artifacts/figures/workflowdiagram.drawio.svg)
+![Workflow](artifacts/figures/workflowdiagram.png)
 
 **See [FINDINGS.md](FINDINGS.md) for a hand-curated summary of results with reproduction pointers** — snapshot prose, will drift if re-trained without updating.
 **See [artifacts/results/paper_report.md](artifacts/results/paper_report.md) for the auto-generated full numeric report** — every number derives from CSVs at generation time, so it always reflects the latest run.
