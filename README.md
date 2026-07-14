@@ -2,7 +2,7 @@
 
 This repository contains source code for predicting technical debt introduced per commit. The pipeline mines repository history, labels commits via LLM-as-judge, trains classifiers (Random Forest, LightGBM, XGBoost), and explains predictions using SHAP, LIME, and permutation importance.
 
-![Workflow](artifacts/figures/workflowdiagram.drawio.svg)
+![Workflow](artifacts/figures/workflowdiagram.png)
 
 ## Quick start
 
