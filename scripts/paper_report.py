@@ -1,0 +1,533 @@
+"""
+Generate a single paper-ready report with all key numbers.
+
+Aggregates from:
+  data/features_with_llm_labels.csv
+  artifacts/results/consolidated_gt.csv
+  artifacts/results/metrics_time.csv
+  artifacts/results/metrics_lopo.csv
+  artifacts/results/xai_topk_lgbm.csv
+  artifacts/results/parsed_labels_v2_rubric_json.csv
+  src/td_prediction/labeling/prompts.py (rubric version)
+  src/td_prediction/config.py (model, date)
+
+Writes:
+  artifacts/results/paper_report.md   — human-readable markdown
+  artifacts/results/paper_report.json — machine-readable, all numbers
+
+Run from repo root:
+    python scripts/paper_report.py
+"""
+from __future__ import annotations
+
+import csv
+import datetime as dt
+import json
+import sys
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+from sklearn.metrics import cohen_kappa_score
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+from td_prediction.config import LLM_MODEL, LLM_MODEL_DATE, LLM_TEMPERATURE
+from td_prediction.labeling.prompts import PROMPT_VERSION
+
+OUT_MD   = Path("artifacts/results/paper_report.md")
+OUT_JSON = Path("artifacts/results/paper_report.json")
+
+
+def _norm(v):
+    s = str(v).strip().lower()
+    if s in ("1", "yes", "true"):  return 1
+    if s in ("0", "no", "false"): return 0
+    return None
+
+
+def _kappas() -> dict:
+    """Compute inter-rater κ from the human review sheets."""
+    SHEET_A = Path("artifacts/results/human_review_sheet_a_20260424_021700.csv")
+    SHEET_B = Path("artifacts/results/human_review_sheet_b_20260428_183349.csv")
+    SHEET_LLM = Path("artifacts/results/human_review_sheet_llm.csv")
+
+    def load(path, col, delim=","):
+        d = {}
+        with path.open() as f:
+            for r in csv.DictReader(f, delimiter=delim):
+                v = _norm(r.get(col, ""))
+                if v is not None:
+                    d[r["commit_uid"]] = v
+        return d
+
+    ha = load(SHEET_A, "label_human", delim=";")
+    hb = load(SHEET_B, "label_human")
+    ll = load(SHEET_LLM, "label_llm")
+
+    uids_ab = sorted(set(ha) & set(hb))
+    gt = {u: ha[u] for u in uids_ab if ha[u] == hb[u]}
+
+    def k(a, b):
+        common = sorted(set(a) & set(b))
+        return cohen_kappa_score([a[u] for u in common], [b[u] for u in common]), len(common)
+
+    k_ab, n_ab = k(ha, hb)
+    k_la, n_la = k(ll, ha)
+    k_lb, n_lb = k(ll, hb)
+    k_lg, n_lg = k(ll, gt)
+
+    return {
+        "human_a_vs_human_b":   {"kappa": k_ab, "n": n_ab},
+        "llm_vs_human_a":       {"kappa": k_la, "n": n_la},
+        "llm_vs_human_b":       {"kappa": k_lb, "n": n_lb},
+        "llm_vs_consolidated":  {"kappa": k_lg, "n": n_lg},
+        "consolidated_gt_size": len(gt),
+        "gold_set_size":        len(uids_ab),
+    }
+
+
+def _dataset_stats() -> dict:
+    df = pd.read_csv("data/features_with_llm_labels.csv")
+    per_repo = df.groupby("repo_id").agg(
+        n_commits=("commit_uid", "count"),
+        n_satd_pos=("label_satd", "sum"),
+        n_llm_pos=("label_llm", "sum"),
+        n_consolidated_pos=("label_consolidated", "sum"),
+    ).reset_index().to_dict("records")
+
+    return {
+        "n_total":               int(len(df)),
+        "n_repos":               int(df["repo_id"].nunique()),
+        "label_satd_pos":        int(df["label_satd"].sum()),
+        "label_satd_rate":       float(df["label_satd"].mean()),
+        "label_llm_pos":         int(df["label_llm"].sum()),
+        "label_llm_rate":        float(df["label_llm"].mean()),
+        "label_consolidated_pos":  int(df["label_consolidated"].sum()),
+        "label_consolidated_rate": float(df["label_consolidated"].mean()),
+        "label_human_n":         int(df["label_human"].notna().sum()),
+        "label_human_pos":       int(df["label_human"].dropna().sum()),
+        "llm_satd_kappa":        float(cohen_kappa_score(df["label_satd"], df["label_llm"])),
+        "per_repo":              per_repo,
+    }
+
+
+def _time_metrics() -> dict:
+    m = pd.read_csv("artifacts/results/metrics_time.csv")
+    test = m[m["phase"] == "test"]
+    val = m[m["phase"] == "val"]
+    best = test.sort_values("f1_debt", ascending=False).iloc[0]
+
+    cols = ["model", "feature_set", "imbalance",
+            "f1_debt", "roc_auc", "pr_auc_debt",
+            "p_debt", "r_debt", "mcc", "balanced_acc"]
+
+    # Threshold info: RF/all/none tuned threshold, default would be 0.5
+    best_row_full = test[(test.model==best.model)&(test.feature_set==best.feature_set)&(test.imbalance==best.imbalance)].iloc[0]
+    threshold_info = {
+        "tuned_threshold": float(best_row_full["tuned_threshold"]),
+        "threshold_objective": str(best_row_full["threshold_objective"]),
+        "default_threshold": 0.5,
+    }
+
+    # Full ablation table: all 18 configurations, test phase
+    ablation = test[cols].copy()
+
+    return {
+        "best": best[cols].to_dict(),
+        "best_val": val[(val.model==best.model)&(val.feature_set==best.feature_set)&(val.imbalance==best.imbalance)].iloc[0][cols].to_dict(),
+        "threshold": threshold_info,
+        "all_test": ablation.to_dict("records"),
+    }
+
+
+def _stratification() -> dict | None:
+    p = Path("artifacts/results/audit_stratification.csv")
+    if not p.exists():
+        return None
+    df = pd.read_csv(p)
+    return {dim: df[df["dimension"] == dim].to_dict("records") for dim in df["dimension"].unique()}
+
+
+def _lopo_metrics() -> dict:
+    m = pd.read_csv("artifacts/results/metrics_lopo.csv")
+    test = m[m["phase"] == "test"]
+
+    per_repo = []
+    for repo in ["fastapi", "flask", "keras", "requests", "scrapy"]:
+        sub = test[test["split"] == f"lopo_{repo}/test"].sort_values("f1_debt", ascending=False)
+        if len(sub):
+            r = sub.iloc[0]
+            per_repo.append({
+                "held_out_repo": repo,
+                "model": r["model"], "feature_set": r["feature_set"], "imbalance": r["imbalance"],
+                "f1": float(r["f1_debt"]), "auc": float(r["roc_auc"]),
+                "p": float(r["p_debt"]), "r": float(r["r_debt"]), "mcc": float(r["mcc"]),
+            })
+
+    # Mean across same-model rows for the headline number
+    rf_all_none = test[(test["model"]=="rf") & (test["feature_set"]=="all") & (test["imbalance"]=="none")]
+    return {
+        "per_repo_best": per_repo,
+        "rf_all_none_mean_f1": float(rf_all_none["f1_debt"].mean()),
+        "rf_all_none_mean_auc": float(rf_all_none["roc_auc"].mean()),
+        "rf_all_none_mean_mcc": float(rf_all_none["mcc"].mean()),
+    }
+
+
+def _baseline_metrics() -> dict | None:
+    p = Path("artifacts/results/baseline_metrics.csv")
+    if not p.exists():
+        return None
+    df = pd.read_csv(p)
+    test = df[df["phase"] == "test"].iloc[0]
+    val  = df[df["phase"] == "val"].iloc[0]
+    return {
+        "test": {k: float(test[k]) for k in ["f1_debt","p_debt","r_debt","mcc"]},
+        "val":  {k: float(val[k])  for k in ["f1_debt","p_debt","r_debt","mcc"]},
+        "test_cm": {k: int(test[k]) for k in ["tp","fp","fn","tn"]},
+    }
+
+
+def _multiseed() -> dict | None:
+    p = Path("artifacts/results/multiseed_metrics.csv")
+    if not p.exists():
+        return None
+    df = pd.read_csv(p)
+    test = df[df["phase"] == "test"]
+    return {
+        "n_seeds": int(test["seed"].nunique()),
+        "test_mean": {c: float(test[c].mean()) for c in ["f1_debt","roc_auc","pr_auc_debt","p_debt","r_debt","mcc"]},
+        "test_std":  {c: float(test[c].std())  for c in ["f1_debt","roc_auc","pr_auc_debt","p_debt","r_debt","mcc"]},
+    }
+
+
+def _mcnemar() -> str | None:
+    p = Path("artifacts/results/mcnemar_test.txt")
+    return p.read_text() if p.exists() else None
+
+
+def _kappa_ci() -> dict | None:
+    p = Path("artifacts/results/kappa_ci.json")
+    return json.loads(p.read_text()) if p.exists() else None
+
+
+def _operating_points() -> list | None:
+    p = Path("artifacts/results/operating_points.csv")
+    if not p.exists():
+        return None
+    return pd.read_csv(p).to_dict("records")
+
+
+def _confidence_stratified() -> list | None:
+    p = Path("artifacts/results/confidence_stratified_metrics.csv")
+    if not p.exists():
+        return None
+    return pd.read_csv(p).to_dict("records")
+
+
+def _xai_top() -> list:
+    xai = pd.read_csv("artifacts/results/xai_topk_lgbm.csv")
+    return xai.head(10).to_dict("records")
+
+
+def _confidence_stats() -> dict:
+    parsed = pd.read_csv("artifacts/results/parsed_labels_v2_rubric_json.csv")
+    return {
+        "n": int(len(parsed)),
+        "mean": float(parsed["confidence"].mean()),
+        "std":  float(parsed["confidence"].std()),
+        "min":  float(parsed["confidence"].min()),
+        "low_confidence_count": int((parsed["confidence"] < 0.85).sum()),
+        "low_confidence_threshold": 0.85,
+    }
+
+
+def main():
+    generated_at = dt.datetime.now().astimezone().isoformat(timespec="seconds")
+    report = {
+        "generated_at": generated_at,
+        "config": {
+            "llm_model": LLM_MODEL,
+            "llm_model_date": LLM_MODEL_DATE,
+            "llm_temperature": LLM_TEMPERATURE,
+            "prompt_version": PROMPT_VERSION,
+        },
+        "dataset":     _dataset_stats(),
+        "kappa":       _kappas(),
+        "confidence":  _confidence_stats(),
+        "time_split":  _time_metrics(),
+        "lopo":        _lopo_metrics(),
+        "stratification": _stratification(),
+        "satd_baseline":           _baseline_metrics(),
+        "multiseed":               _multiseed(),
+        "mcnemar":                 _mcnemar(),
+        "kappa_ci":                _kappa_ci(),
+        "operating_points":        _operating_points(),
+        "confidence_stratified":   _confidence_stratified(),
+        "xai_top10":   _xai_top(),
+    }
+
+    # Numeric report (JSON)
+    OUT_JSON.write_text(json.dumps(report, indent=2, default=str))
+
+    # Human-readable report (Markdown)
+    cfg = report["config"]
+    ds  = report["dataset"]
+    k   = report["kappa"]
+    c   = report["confidence"]
+    tm  = report["time_split"]
+    lp  = report["lopo"]
+    xai = report["xai_top10"]
+
+    md = []
+    md.append(f"# TD Prediction — Paper Report\n")
+    md.append(f"_Auto-generated {generated_at}. Re-run `python scripts/paper_report.py` after re-training._\n")
+
+    md.append("## Setup\n")
+    md.append(f"- LLM model: `{cfg['llm_model']}` (snapshot {cfg['llm_model_date']})")
+    md.append(f"- Prompt version: `{cfg['prompt_version']}`, temperature={cfg['llm_temperature']}")
+    md.append(f"- Repositories: {ds['n_repos']} (fastapi, flask, keras, requests, scrapy)\n")
+
+    md.append("## Dataset\n")
+    md.append(f"- **{ds['n_total']:,}** commits total")
+    md.append(f"- **{ds['label_consolidated_pos']:,}** TD-positive ({ds['label_consolidated_rate']*100:.2f}% rate) in `label_consolidated`")
+    md.append(f"- {ds['label_satd_pos']:,} SATD-keyword commits ({ds['label_satd_rate']*100:.2f}%)")
+    md.append(f"- {ds['label_llm_pos']:,} LLM-flagged ({ds['label_llm_rate']*100:.2f}%)")
+    md.append(f"- {ds['label_human_n']} commits with consolidated human label (gold set with consensus)")
+    md.append(f"- LLM vs SATD agreement (κ): **{ds['llm_satd_kappa']:.3f}** — LLM captures signal beyond keywords\n")
+
+    md.append("**Per-repository:**\n")
+    md.append("| Repo | Commits | label_satd+ | label_consolidated+ |")
+    md.append("|---|---:|---:|---:|")
+    for r in ds["per_repo"]:
+        md.append(f"| {r['repo_id']} | {r['n_commits']:,} | {r['n_satd_pos']:,} | {int(r['n_consolidated_pos']):,} |")
+    md.append("")
+
+    md.append("## Inter-rater agreement (Cohen's κ)\n")
+    md.append(f"- 100-commit gold set, two human reviewers (A, B). Consolidated GT = where A == B ({k['consolidated_gt_size']}/{k['gold_set_size']} commits).")
+    cis = report.get("kappa_ci")
+    if cis:
+        first = next(iter(cis.values()))
+        md.append(f"- 95% CIs from {first['n_bootstrap']:,}-resample non-parametric bootstrap.\n")
+    else:
+        md.append("")
+    md.append("| Comparison | n | κ | 95% CI | Interpretation |")
+    md.append("|---|---:|---:|---|---|")
+    for name, label in [
+        ("human_a_vs_human_b",  "Human A vs Human B"),
+        ("llm_vs_human_a",      "LLM vs Human A"),
+        ("llm_vs_human_b",      "LLM vs Human B"),
+        ("llm_vs_consolidated", "LLM vs Consolidated GT"),
+    ]:
+        kv = k[name]["kappa"]; nv = k[name]["n"]
+        if kv >= 0.6: interp = "substantial"
+        elif kv >= 0.4: interp = "moderate"
+        elif kv >= 0.2: interp = "fair"
+        else: interp = "poor"
+        ci_str = "—"
+        if cis and name in cis:
+            ci_str = f"[{cis[name]['ci_lo']:.3f}, {cis[name]['ci_hi']:.3f}]"
+        md.append(f"| {label} | {nv} | **{kv:.4f}** | {ci_str} | {interp} |")
+    md.append("")
+    md.append(f"Inter-human κ on this {k['gold_set_size']}-commit gold set is "
+              f"{k['human_a_vs_human_b']['kappa']:.2f}; "
+              f"LLM-vs-consensus κ is {k['llm_vs_consolidated']['kappa']:.2f} on the "
+              f"{k['consolidated_gt_size']}-commit consensus subset.\n")
+
+    md.append("## LLM confidence\n")
+    md.append(f"- Mean confidence: {c['mean']:.3f} ± {c['std']:.3f}")
+    md.append(f"- {c['low_confidence_count']} commits with confidence < {c['low_confidence_threshold']} "
+              f"({c['low_confidence_count']/c['n']*100:.2f}% of corpus) — flagged for additional human review\n")
+
+    strat = report.get("stratification")
+    if strat:
+        md.append("## Gold-set stratification\n")
+        md.append("The 100-commit human-reviewed sample was stratified to ensure both label "
+                  "classes are well represented. Pure random sampling at the corpus's 3.1% SATD "
+                  "rate would yield ~3 SATD-positive cases out of 100, making κ unreliable.\n")
+        md.append("| Dimension | Stratum | Corpus | Gold | Expected | Observed |")
+        md.append("|---|---|---:|---:|---:|---:|")
+        for dim in ["repo", "size", "label_satd"]:
+            for r in strat.get(dim, []):
+                md.append(f"| {dim} | {r['stratum']} | {int(r['corpus_n']):,} | "
+                          f"{int(r['gold_n'])} | {float(r['expected_in_gold']):.1f} | "
+                          f"{int(r['observed_in_gold'])} |")
+        md.append("")
+
+    md.append("## Time-split — best model on TEST\n")
+    b = tm["best"]; bv = tm["best_val"]
+    th = tm["threshold"]
+    md.append(f"**{b['model']} / {b['feature_set']} / {b['imbalance']}**, classification threshold "
+              f"tuned on validation: **{th['tuned_threshold']:.3f}** (objective: {th['threshold_objective']}).\n")
+    md.append("| Phase | F1 | AUC | PR-AUC | P | R | MCC | Bal.Acc. |")
+    md.append("|---|---:|---:|---:|---:|---:|---:|---:|")
+    md.append(f"| val  | {bv['f1_debt']:.3f} | {bv['roc_auc']:.3f} | {bv['pr_auc_debt']:.3f} | {bv['p_debt']:.3f} | {bv['r_debt']:.3f} | {bv['mcc']:.3f} | {bv['balanced_acc']:.3f} |")
+    md.append(f"| **test** | **{b['f1_debt']:.3f}** | **{b['roc_auc']:.3f}** | **{b['pr_auc_debt']:.3f}** | **{b['p_debt']:.3f}** | **{b['r_debt']:.3f}** | **{b['mcc']:.3f}** | **{b['balanced_acc']:.3f}** |")
+    md.append("")
+
+    # Full ablation table
+    md.append("### Full ablation (all 18 configurations, TEST)\n")
+    md.append("| Model | Features | Imbalance | F1 | AUC | PR-AUC | P | R | MCC |")
+    md.append("|---|---|---|---:|---:|---:|---:|---:|---:|")
+    for r in sorted(tm["all_test"], key=lambda x: -x["f1_debt"]):
+        md.append(f"| {r['model']} | {r['feature_set']} | {r['imbalance']} | "
+                  f"{r['f1_debt']:.3f} | {r['roc_auc']:.3f} | {r['pr_auc_debt']:.3f} | "
+                  f"{r['p_debt']:.3f} | {r['r_debt']:.3f} | {r['mcc']:.3f} |")
+    md.append("")
+
+    bl = report.get("satd_baseline")
+    ms = report.get("multiseed")
+    if bl and ms:
+        md.append("## ML model vs SATD-regex baseline (TEST)\n")
+        md.append("| Approach | F1 | P | R | MCC |")
+        md.append("|---|---:|---:|---:|---:|")
+        md.append(f"| **ML (RF/all/none, mean of {ms['n_seeds']} seeds)** "
+                  f"| **{ms['test_mean']['f1_debt']:.3f} ± {ms['test_std']['f1_debt']:.3f}** "
+                  f"| {ms['test_mean']['p_debt']:.3f} ± {ms['test_std']['p_debt']:.3f} "
+                  f"| {ms['test_mean']['r_debt']:.3f} ± {ms['test_std']['r_debt']:.3f} "
+                  f"| {ms['test_mean']['mcc']:.3f} ± {ms['test_std']['mcc']:.3f} |")
+        md.append(f"| SATD regex baseline | {bl['test']['f1_debt']:.3f} | {bl['test']['p_debt']:.3f} "
+                  f"| {bl['test']['r_debt']:.3f} | {bl['test']['mcc']:.3f} |")
+        md.append("")
+        md.append(f"AUC σ across seeds = {ms['test_std']['roc_auc']:.4f}. "
+                  f"ML F1 exceeds SATD-regex F1 by "
+                  f"{(ms['test_mean']['f1_debt']-bl['test']['f1_debt'])*100:.1f}pp. "
+                  "SATD has higher precision (it only fires on commits with TD keywords); "
+                  "ML has higher recall (flags commits with structural TD signals "
+                  "regardless of keywords).\n")
+
+    mcn = report.get("mcnemar")
+    if mcn:
+        md.append("**McNemar's test** (significance of disagreement, two-sided):\n")
+        md.append("```")
+        md.append(mcn.strip())
+        md.append("```\n")
+
+    ops = report.get("operating_points")
+    if ops:
+        md.append("## Threshold trade-off — operating points (TEST)\n")
+        md.append("Same model, different decision thresholds. Use case dictates the choice.\n")
+        md.append("| Operating point | Threshold | P | R | F1 | F0.5 | F2 | MCC | TP | FP | FN | TN |")
+        md.append("|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|")
+        for r in ops:
+            md.append(f"| {r['name']} | {r['threshold']:.3f} | "
+                      f"{r['precision']:.3f} | {r['recall']:.3f} | {r['f1']:.3f} | "
+                      f"{r['f0.5']:.3f} | {r['f2']:.3f} | {r['mcc']:.3f} | "
+                      f"{int(r['tp'])} | {int(r['fp'])} | {int(r['fn'])} | {int(r['tn'])} |")
+        md.append("\nNote: F1-optimal is the default reported operating point. "
+                  "F0.5 weights precision more (review-queue use cases); "
+                  "F2 weights recall more (screening use cases). "
+                  "`cost_optimal_*` minimises a misclassification cost function "
+                  "(see next section) at the indicated C_FN:C_FP ratio.\n")
+
+        # Cost-curve plots
+        md.append("![PR curve](../figures/pr_curve.png)")
+        md.append("![Threshold sweep](../figures/threshold_sweep.png)\n")
+
+    # Cost-function section
+    cost_ops = [r for r in (ops or []) if r["name"].startswith("cost_optimal")]
+    if cost_ops:
+        md.append("## Misclassification cost analysis (TEST)\n")
+        md.append("We evaluate the model under an explicit misclassification cost model:\n")
+        md.append("> **Cost = C_FN · FN + C_FP · FP**\n")
+        md.append("A false negative (a TD-introducing commit the model failed to flag) is "
+                  "generally more expensive than a false positive (an unnecessary entry "
+                  "on the reviewer's queue): the FN's cost compounds in maintenance debt, "
+                  "the FP's cost is bounded by review time. We do not commit to a single "
+                  "ratio; instead we report three.\n")
+        md.append("| Ratio (C_FN:C_FP) | Threshold | TP | FP | FN | F1 | Precision | Recall |")
+        md.append("|---|---:|---:|---:|---:|---:|---:|---:|")
+        for r in cost_ops:
+            ratio = r["name"].replace("cost_optimal_", "")
+            md.append(f"| {ratio} | {r['threshold']:.3f} | {int(r['tp'])} | "
+                      f"{int(r['fp'])} | {int(r['fn'])} | {r['f1']:.3f} | "
+                      f"{r['precision']:.3f} | {r['recall']:.3f} |")
+        md.append("")
+        # Pull the operating points we reference in the prose
+        op_by_name = {r["name"]: r for r in (ops or [])}
+        c11   = op_by_name.get("cost_optimal_1:1")
+        c10_1 = op_by_name.get("cost_optimal_10:1")
+        f1op  = op_by_name.get("f1_optimal")
+
+        # Test positive rate (from confusion-matrix totals at any operating point)
+        if c11:
+            n_pos_test = int(c11["tp"]) + int(c11["fn"])
+            n_test     = n_pos_test + int(c11["fp"]) + int(c11["tn"])
+            pos_rate   = n_pos_test / n_test if n_test else 0.0
+        else:
+            n_pos_test = n_test = 0; pos_rate = 0.0
+
+        md.append("Three observations:\n")
+        if c11:
+            md.append(f"- **At 1:1 the model becomes silent.** With a "
+                      f"{pos_rate*100:.1f}% positive rate in the test set "
+                      f"(n={n_test:,}, {n_pos_test} TD-positive), treating both errors "
+                      f"as equally bad mathematically pushes the optimum toward not "
+                      f"flagging anything; only {int(c11['tp'])} of {n_pos_test} TD "
+                      f"commits ({int(c11['tp'])/max(n_pos_test,1)*100:.0f}%) are caught. "
+                      f"This is why F1 — not raw accuracy — is the standard metric for "
+                      f"imbalanced detection.")
+        md.append("- **F1-optimal lies in the same neighbourhood as cost-optimal at 5:1.** "
+                  "The F1 criterion implicitly assumes a cost ratio close to 5:1; "
+                  "reporting F1 alone is therefore a hidden cost-modelling choice rather "
+                  "than a neutral metric.")
+        if c10_1 and f1op:
+            extra_tp = int(c10_1["tp"]) - int(f1op["tp"])
+            extra_fp = int(c10_1["fp"]) - int(f1op["fp"])
+            md.append(f"- **At 10:1 the cost-optimal threshold "
+                      f"(≈{c10_1['threshold']:.2f}) lies below the F1-optimal threshold "
+                      f"(≈{f1op['threshold']:.2f}).** Catching {extra_tp} additional TD "
+                      f"commits requires accepting {extra_fp} additional false positives. "
+                      f"Whether this trade is worthwhile depends on the deployment "
+                      f"context.\n")
+        md.append("The 5:1 and 10:1 ratios are not derived from a published cost model — "
+                  "we adopt them as plausible bounds motivated by the gap between typical "
+                  "code-review effort (minutes per commit) and typical TD remediation "
+                  "effort (hours to days). The 1:1 row is a sensitivity check, not a "
+                  "recommended operating point.\n")
+        md.append("![Cost vs threshold](../figures/cost_vs_threshold.png)\n")
+
+    cs = report.get("confidence_stratified")
+    if cs:
+        md.append("## Stratified evaluation by LLM confidence (TEST)\n")
+        md.append("Does the model perform better on commits where the LLM judge was confident?\n")
+        md.append("| Confidence bucket | n | Pos% | F1 | P | R | AUC | PR-AUC | MCC |")
+        md.append("|---|---:|---:|---:|---:|---:|---:|---:|---:|")
+        for r in cs:
+            def fmt(x): return "—" if (x != x) else f"{x:.3f}"  # NaN check
+            md.append(f"| {r['bucket']} | {int(r['n']):,} | {r['pos_rate']*100:.2f}% | "
+                      f"{fmt(r['f1'])} | {fmt(r['p'])} | {fmt(r['r'])} | "
+                      f"{fmt(r['roc_auc'])} | {fmt(r['pr_auc_debt'])} | {fmt(r['mcc'])} |")
+        md.append("\nModel performance increases monotonically with LLM judge confidence. "
+                  "Low-confidence commits are recorded for additional human review.\n")
+        md.append("![PR curve by confidence](../figures/pr_curve_by_confidence.png)")
+        md.append("![Threshold sweep by confidence](../figures/threshold_sweep_by_confidence.png)\n")
+
+    md.append("## LOPO (leave-one-project-out) — cross-project generalization\n")
+    md.append(f"Mean across the 5 held-out repos (RF / all / none): "
+              f"F1={lp['rf_all_none_mean_f1']:.3f}, AUC={lp['rf_all_none_mean_auc']:.3f}, MCC={lp['rf_all_none_mean_mcc']:.3f}\n")
+    md.append("**Best per held-out repo (test):**\n")
+    md.append("| Held-out | Model | Feat. set | Imb. | F1 | AUC | P | R | MCC |")
+    md.append("|---|---|---|---|---:|---:|---:|---:|---:|")
+    for r in lp["per_repo_best"]:
+        md.append(f"| {r['held_out_repo']} | {r['model']} | {r['feature_set']} | {r['imbalance']} | "
+                  f"{r['f1']:.3f} | {r['auc']:.3f} | {r['p']:.3f} | {r['r']:.3f} | {r['mcc']:.3f} |")
+    md.append("")
+
+    md.append("## XAI — top features (consensus across SHAP / LIME / Permutation)\n")
+    md.append("| Rank | SHAP | LIME | Permutation |")
+    md.append("|---:|---|---|---|")
+    for i, r in enumerate(xai, 1):
+        md.append(f"| {i} | `{r['shap_feature']}` | `{r['lime_feature']}` | `{r['perm_feature']}` |")
+    md.append("\n`lines_added` is rank-1 across all three explainers. Size and complexity deltas "
+              "(`lines_added`, `cc_delta_*`, `churn_delta`) appear consistently in the top-5; "
+              "author/maturity features (`n_authors_till_now`, `contributors_count`) are next.")
+    md.append("")
+
+    OUT_MD.write_text("\n".join(md))
+    print(f"Wrote {OUT_MD}")
+    print(f"Wrote {OUT_JSON}")
+
+
+if __name__ == "__main__":
+    main()

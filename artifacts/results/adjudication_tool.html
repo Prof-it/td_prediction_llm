@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Label Adjudication — Human A vs B vs LLM</title>
+  <style>
+    body { font-family: sans-serif; font-size: 0.9em; margin: 1em 2em; }
+    h2 { margin-bottom: 0.3em; }
+    .controls { margin: 0.8em 0; display: flex; gap: 1em; align-items: center; flex-wrap: wrap; }
+    .controls label { font-weight: bold; }
+    select, input[type="text"] { padding: 4px 8px; font-size: 0.95em; }
+
+    table { border-collapse: collapse; width: 100%; table-layout: fixed; }
+    th { background: #e8e8e8; padding: 6px 8px; text-align: left; position: sticky; top: 0; z-index: 1; }
+    td { border: 1px solid #ddd; padding: 6px 8px; vertical-align: top; word-wrap: break-word; }
+    tr:nth-child(even) { background: #fafafa; }
+
+    .col-n       { width: 3%; }
+    .col-commit  { width: 8%; }
+    .col-satd    { width: 4%; }
+    .col-label   { width: 5%; text-align: center; font-weight: bold; }
+    .col-rat     { width: 17%; }
+
+    .yes  { color: #c0392b; }
+    .no   { color: #27ae60; }
+    .badge { display: inline-block; padding: 1px 7px; border-radius: 10px; font-size: 0.85em; font-weight: bold; }
+    .badge.yes { background: #fde8e8; color: #c0392b; }
+    .badge.no  { background: #e8f8ee; color: #27ae60; }
+
+    tr.all-agree    { }
+    tr.partial      { background: #fff9e6 !important; }
+    tr.all-disagree { background: #fff0f0 !important; }
+
+    .tag { font-size: 0.78em; padding: 1px 5px; border-radius: 8px; margin-left: 4px; vertical-align: middle; }
+    .tag.humans-disagree { background: #fde8e8; color: #900; }
+    .tag.llm-wrong       { background: #fff3cd; color: #856404; }
+    .tag.all-agree-tag   { background: #e8f8ee; color: #1a7a40; }
+
+    .stats { background: #f0f4ff; border: 1px solid #c0ccee; padding: 0.8em 1.2em; border-radius: 6px; margin-bottom: 1em; display: flex; gap: 2em; flex-wrap: wrap; }
+    .stats span { font-size: 0.95em; }
+    .stats b { font-size: 1.1em; }
+
+    a { color: #1a5fb4; }
+  </style>
+</head>
+<body>
+  <h2>Label Adjudication — Human A vs Human B vs LLM</h2>
+  <p style="color:#555; margin-top:0;">Loads <code>consolidated_gt.csv</code> from the same folder. Shows all three raters side by side.</p>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="controls">
+    <label>Show:
+      <select id="filterMode" onchange="render()">
+        <option value="all">All 100 commits</option>
+        <option value="humans_disagree" selected>Humans disagree (A ≠ B)</option>
+        <option value="llm_wrong">LLM ≠ consolidated GT</option>
+        <option value="any_disagree">Any disagreement</option>
+        <option value="all_agree">All agree</option>
+      </select>
+    </label>
+    <label>Search rationale:
+      <input type="text" id="search" placeholder="keyword…" oninput="render()">
+    </label>
+    <span id="rowCount" style="color:#555;"></span>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th class="col-n">#</th>
+        <th class="col-commit">Commit</th>
+        <th class="col-satd">SATD</th>
+        <th class="col-label">Human A</th>
+        <th class="col-rat">Rationale A</th>
+        <th class="col-label">Human B</th>
+        <th class="col-rat">Rationale B</th>
+        <th class="col-label">LLM</th>
+        <th class="col-rat">Rationale LLM</th>
+        <th class="col-label">GT</th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+
+<script>
+let allRows = [];
+
+function normLabel(v) {
+  if (v === null || v === undefined || v === '') return null;
+  const s = String(v).trim().toLowerCase();
+  if (s === '1' || s === 'yes' || s === 'true') return 'yes';
+  if (s === '0' || s === 'no'  || s === 'false') return 'no';
+  return null;
+}
+
+function badge(val) {
+  const n = normLabel(val);
+  if (n === null) return '<span style="color:#999">—</span>';
+  return `<span class="badge ${n}">${n}</span>`;
+}
+
+function parseCSV(text) {
+  const lines = text.split('\n').filter(l => l.trim());
+  const headers = lines[0].split(',').map(h => h.trim());
+  return lines.slice(1).map(line => {
+    const cols = [];
+    let cur = '', inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (c === '"') { inQ = !inQ; }
+      else if (c === ',' && !inQ) { cols.push(cur); cur = ''; }
+      else { cur += c; }
+    }
+    cols.push(cur);
+    const row = {};
+    headers.forEach((h, i) => row[h] = (cols[i] || '').trim().replace(/^"|"$/g, ''));
+    return row;
+  });
+}
+
+function computeStats(rows) {
+  let humansDisagree = 0, llmWrong = 0, allAgree = 0;
+  rows.forEach(r => {
+    const a = normLabel(r.label_human_a), b = normLabel(r.label_human_b), l = normLabel(r.label_llm);
+    const gt = normLabel(r.label_gt);
+    if (a !== null && b !== null && a !== b) humansDisagree++;
+    if (gt !== null && l !== null && l !== gt) llmWrong++;
+    if (a !== null && b !== null && l !== null && a === b && b === l) allAgree++;
+  });
+  return { humansDisagree, llmWrong, allAgree, total: rows.length };
+}
+
+function render() {
+  const mode   = document.getElementById('filterMode').value;
+  const search = document.getElementById('search').value.toLowerCase();
+
+  const filtered = allRows.filter(r => {
+    const a = normLabel(r.label_human_a), b = normLabel(r.label_human_b), l = normLabel(r.label_llm);
+    const gt = normLabel(r.label_gt);
+    const text = [r.rationale_human_a, r.rationale_human_b, r.rationale_llm].join(' ').toLowerCase();
+    if (search && !text.includes(search) && !r.commit_uid.toLowerCase().includes(search)) return false;
+
+    if (mode === 'humans_disagree') return a !== null && b !== null && a !== b;
+    if (mode === 'llm_wrong')       return gt !== null && l !== null && l !== gt;
+    if (mode === 'any_disagree')    return (a !== null && b !== null && a !== b) || (gt !== null && l !== null && l !== gt);
+    if (mode === 'all_agree')       return a !== null && b !== null && l !== null && a === b && b === l;
+    return true;
+  });
+
+  document.getElementById('rowCount').textContent = `Showing ${filtered.length} commits`;
+
+  const tbody = document.getElementById('tbody');
+  tbody.innerHTML = filtered.map((r, i) => {
+    const a = normLabel(r.label_human_a), b = normLabel(r.label_human_b), l = normLabel(r.label_llm);
+    const gt = normLabel(r.label_gt);
+    const humansDisagree = a !== null && b !== null && a !== b;
+    const llmWrong = gt !== null && l !== null && l !== gt;
+    const rowClass = humansDisagree && llmWrong ? 'all-disagree' : (humansDisagree || llmWrong) ? 'partial' : 'all-agree';
+
+    const shortHash = (r.commit_hash || r.commit_uid || '').slice(0, 8);
+    const url = r.commit_url || '#';
+
+    const tags = [];
+    if (humansDisagree) tags.push('<span class="tag humans-disagree">humans disagree</span>');
+    if (llmWrong)       tags.push('<span class="tag llm-wrong">LLM ≠ GT</span>');
+    if (!humansDisagree && !llmWrong) tags.push('<span class="tag all-agree-tag">all agree</span>');
+
+    return `<tr class="${rowClass}">
+      <td class="col-n">${i + 1}</td>
+      <td class="col-commit">
+        <a href="${url}" target="_blank">${shortHash}</a>
+        <br><span style="color:#888;font-size:0.8em">${r.repo_id || ''}</span>
+        ${tags.join('')}
+      </td>
+      <td class="col-satd" style="text-align:center">${r.label_satd !== undefined ? r.label_satd : '—'}</td>
+      <td class="col-label">${badge(r.label_human_a)}</td>
+      <td class="col-rat">${r.rationale_human_a || ''}</td>
+      <td class="col-label">${badge(r.label_human_b)}</td>
+      <td class="col-rat">${r.rationale_human_b || ''}</td>
+      <td class="col-label">${badge(r.label_llm)}</td>
+      <td class="col-rat">${r.rationale_llm || ''}</td>
+      <td class="col-label">${badge(r.label_gt)}</td>
+    </tr>`;
+  }).join('');
+}
+
+fetch('consolidated_gt.csv')
+  .then(r => r.text())
+  .then(text => {
+    allRows = parseCSV(text);
+    const s = computeStats(allRows);
+    document.getElementById('stats').innerHTML = `
+      <span>Total commits: <b>${s.total}</b></span>
+      <span>Humans disagree: <b>${s.humansDisagree}</b></span>
+      <span>LLM ≠ GT: <b>${s.llmWrong}</b></span>
+      <span>All three agree: <b>${s.allAgree}</b></span>
+    `;
+    render();
+  })
+  .catch(() => {
+    document.getElementById('tbody').innerHTML =
+      '<tr><td colspan="10" style="color:red;padding:1em;">Could not load consolidated_gt.csv — open this file from a local server or place it in the same folder.</td></tr>';
+  });
+</script>
+</body>
+</html>

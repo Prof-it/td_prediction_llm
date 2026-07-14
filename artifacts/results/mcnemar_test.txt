@@ -1,0 +1,7 @@
+McNemar's test: rf_all_none vs satd_regex
+  n_test                                    = 4212
+  rf_all_none               correct, other wrong: 129
+  satd_regex                correct, other wrong: 254
+  chi²                                      = 40.1462
+  p-value                                   = 2.356e-10
+  significant at α=0.05?                    = YES

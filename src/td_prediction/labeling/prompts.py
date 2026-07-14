@@ -16,7 +16,7 @@ from __future__ import annotations
 import json
 from typing import Callable
 
-PROMPT_VERSION = "v2.2"
+PROMPT_VERSION = "v2.3"
 
 
 
@@ -61,6 +61,9 @@ is clearly and directly observable in the diff:
 6. Self-admitted technical debt:
     - comments or messages explicitly stating the solution is temporary,
       incomplete, or suboptimal
+    - ONLY if the shortcut described is ALSO introduced in this same commit.
+      Adding a TODO/FIXME/HACK comment to pre-existing code does NOT count —
+      it acknowledges existing debt but does not introduce new debt in this commit.
 
 Do NOT label as TD:
 - Changes that reduce complexity or remove duplication
@@ -68,6 +71,8 @@ Do NOT label as TD:
 - Self-contained feature additions with no visible shortcuts
 - Absence of tests or safeguards UNLESS their removal is explicitly shown
 - Any claim that relies on unseen files or assumed architecture
+- A SATD keyword (TODO, FIXME, HACK, etc.) added as a comment on code that
+  already existed before this commit — the debt pre-dates this change
 
 DECISION RULE:
 - Default to "no" unless there is clear, direct evidence of TD in the diff.
@@ -182,7 +187,7 @@ def v1_diff_removed(row: dict, diff_text: str, *, few_shot=None) -> list[dict]:
 
 
 VARIANTS: dict[str, Callable[..., list[dict]]] = {
-    # v2 — used for the workshop-paper iteration.
+    # v2 — current iteration.
     "v2_rubric_json":     v2_rubric_json,
     "v2_rubric_no_diff":  v2_rubric_no_diff,
     "v2_rubric_diff_only": v2_rubric_diff_only,
