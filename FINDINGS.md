@@ -22,7 +22,7 @@ By the Landis & Koch (1977) classification this is "substantial" agreement. Inte
 
 **κ(LLM, SATD) = 0.34** on the full 21,038-commit corpus.
 
-Of the 1,310 LLM-flagged TD commits, **947 have no SATD keywords** — the LLM identifies TD beyond what regex detection catches. This justifies using an LLM judge rather than relying on the regex alone.
+Of the 1,311 LLM-flagged TD commits, **947 have no SATD keywords** — the LLM identifies TD beyond what regex detection catches. This justifies using an LLM judge rather than relying on the regex alone.
 
 **Evidence**
 - [scripts/paper_report.py](scripts/paper_report.py) — `_dataset_stats()` computes this κ
