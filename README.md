@@ -163,3 +163,36 @@ python scripts/build_all_paper_artifacts.py --skip-autoreview --skip-train
 
 - **Single-reviewer flow:** open `artifacts/results/human_review_sheet_review.html` in a browser served from `artifacts/results/` (loads the LLM sheet for a new reviewer to label).
 - **Adjudication flow:** open `artifacts/results/adjudication_tool.html` (loads `consolidated_gt.csv` and shows Human A / Human B / LLM labels + rationales side-by-side, filterable by disagreement type).
+
+## 📚 Publications
+
+This repository accompanies the following research contributions on AI-driven technical debt prediction in DevOps:
+
+* **Morgenstern, T. and Lu, T. (2026).** *Towards Trustworthy AI Systems in DevOps: Iterative LLM-based Labeling, Explainable AI, and Human-in-the-Loop Learning for Technical Debt Prediction.* MOC 2026 – 17th Workshop KI-basiertes Management, Design und Optimierung komplexer Systeme, Dresden, Germany, 22–25 September 2026. Camera-ready.
+
+* **Morgenstern, T. and Lu, T. (2025).** *Intelligent Technical Debt Prediction for Agile DevOps: An Explainable AI Prototype.* MOC 2025 – 16th Workshop on AI-based Management, Optimization and Configuration, Évora, Portugal, 24–26 September 2025. [Paper](https://drive.google.com/file/d/1Luas5iIL5NqqJ_u6QCG6LiFoXzqflZYe/view?usp=sharing)
+
+### BibTeX
+
+```bibtex
+@inproceedings{morgenstern2026trustworthy,
+  author    = {Morgenstern, Tom and Lu, Tianxiang},
+  title     = {Towards Trustworthy AI Systems in DevOps: Iterative LLM-based Labeling, Explainable AI, and Human-in-the-Loop Learning for Technical Debt Prediction},
+  booktitle = {MOC 2026 -- 17th Workshop KI-basiertes Management, Design und Optimierung komplexer Systeme},
+  year      = {2026},
+  address   = {Dresden, Germany},
+  month     = sep,
+  note      = {Camera-ready}
+}
+
+@inproceedings{morgenstern2025intelligent,
+  author    = {Morgenstern, Tom and Lu, Tianxiang},
+  title     = {Intelligent Technical Debt Prediction for Agile DevOps: An Explainable AI Prototype},
+  booktitle = {MOC 2025 -- 16th Workshop on AI-based Management, Optimization and Configuration},
+  year      = {2025},
+  address   = {Évora, Portugal},
+  month     = sep,
+  note      = {Paper available online}
+}
+```
+
